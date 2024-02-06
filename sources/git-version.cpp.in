@@ -1,5 +1,0 @@
-#include "git-version.h"
-
-namespace securefs {
-    const char* const GIT_VERSION = "@GIT_VERSION@";
-}

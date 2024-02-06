@@ -1,18 +1,10 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.7 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_STANDARD 17)
 endif()
 
-option(
-    SECUREFS_USE_VCPKG
-    "Whether to use vcpkg for the dependencies. When off, pkg-config is used instead."
-    ON)
-option(SECUREFS_ENABLE_UNIT_TEST
-       "Whether to build dedicated test binary and test it" ON)
-option(SECUREFS_ENABLE_INTEGRATION_TEST
-       "Whether to run integration test over real FUSE mounts" ON)
 option(SECUREFS_USE_FUSET
        "Use FUSE-T instead of MacFUSE (only makes sense on macOS)" OFF)
 
@@ -25,13 +17,6 @@ if(APPLE)
     add_link_options(-Wl,-dead_strip)
 endif()
 
-execute_process(COMMAND bash -c "uname -m" OUTPUT_VARIABLE architecture)
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake-modules/")
-include(GetGitRevisionDescription)
-git_describe(GIT_VERSION --tags)
-configure_file(${CMAKE_SOURCE_DIR}/sources/git-version.cpp.in
-               ${CMAKE_BINARY_DIR}/git-version.cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wthread-safety)
@@ -40,74 +25,33 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 endif()
 
-add_definitions(-D_REENTRANT -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=28
-                -DUTF8PROC_EXPORTS=1)
-
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
-include_directories(BEFORE sources)
-set(EXTERNAL_DIR external)
-include_directories(${EXTERNAL_DIR})
 
 file(
     GLOB
-    SOURCES
-    sources/*.cpp
-    sources/*.h
-    ${EXTERNAL_DIR}/*.h
-    ${EXTERNAL_DIR}/*.hpp
-    ${EXTERNAL_DIR}/*.cpp
-    ${CMAKE_BINARY_DIR}/git-version.cpp)
-file(GLOB TEST_SOURCES test/*.h test/*.cpp)
-add_library(securefs-static STATIC ${SOURCES})
-link_libraries(securefs-static)
+    CORE_SOURCES
+    sources/core/*.hpp sources/core/*.cpp)
+add_library(securefs-core STATIC ${CORE_SOURCES})
 
+
+find_package(Threads REQUIRED)
+target_link_libraries(securefs-core PUBLIC Threads::Threads)
+
+    find_package(cryptopp REQUIRED)
+    target_link_libraries(securefs-core PUBLIC cryptopp::cryptopp)
+
+if(CMAKE_DL_LIBS)
+    target_link_libraries(securefs-core PUBLIC ${CMAKE_DL_LIBS})
+endif()
+
+
+if(0)
+	add_definitions(-D_REENTRANT -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=28
+                -DUTF8PROC_EXPORTS=1)
 if(MSVC)
     add_executable(securefs main.cpp securefs.manifest)
 else()
     add_executable(securefs main.cpp)
 endif()
-
-find_package(Threads REQUIRED)
-target_link_libraries(securefs-static PUBLIC Threads::Threads)
-find_path(TCLAP_INCLUDE_DIRS "tclap/Arg.h")
-target_include_directories(securefs-static PUBLIC ${TCLAP_INCLUDE_DIRS})
-find_package(absl CONFIG REQUIRED)
-target_link_libraries(
-    securefs-static PUBLIC absl::base absl::inlined_vector absl::flat_hash_map
-                           absl::strings absl::optional)
-
-if(SECUREFS_USE_VCPKG)
-    find_package(cryptopp CONFIG REQUIRED)
-    target_link_libraries(securefs-static PUBLIC cryptopp::cryptopp)
-    find_package(unofficial-utf8proc CONFIG REQUIRED)
-    target_link_libraries(securefs-static PUBLIC utf8proc)
-    find_package(unofficial-libargon2 CONFIG REQUIRED)
-    target_link_libraries(securefs-static PUBLIC unofficial::argon2::libargon2)
-    find_package(jsoncpp CONFIG REQUIRED)
-    target_link_libraries(securefs-static PUBLIC JsonCpp::JsonCpp)
-else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(UTF8PROC REQUIRED libutf8proc)
-    pkg_check_modules(ARGON2 REQUIRED libargon2)
-    pkg_check_modules(JSONCPP REQUIRED jsoncpp)
-    target_include_directories(
-        securefs-static PUBLIC ${UTF8PROC_INCLUDE_DIRS} ${ARGON2_INCLUDE_DIRS}
-                               ${JSONCPP_INCLUDE_DIRS})
-    target_link_libraries(
-        securefs-static PUBLIC ${CRYPTOPP_LDFLAGS} ${UTF8PROC_LDFLAGS}
-                               ${ARGON2_LDFLAGS} ${JSONCPP_LDFLAGS})
-
-    find_library(CRYPTOPP_FLAGS NAMES cryptopp crypto++)
-    target_link_libraries(securefs-static PUBLIC ${CRYPTOPP_FLAGS})
-endif()
-
-if(CMAKE_DL_LIBS)
-    target_link_libraries(securefs-static PUBLIC ${CMAKE_DL_LIBS})
-endif()
-
 if(UNIX)
     find_path(FUSE_INCLUDE_DIR fuse.h PATHS /usr/local/include/fuse
                                             /usr/local/include)
@@ -148,13 +92,7 @@ else()
                               PUBLIC -delayload=winfsp-${ARCH}.dll)
     endif()
 endif()
-
-if(SECUREFS_ENABLE_UNIT_TEST)
-    add_executable(securefs_test ${TEST_SOURCES})
-    find_package(doctest CONFIG REQUIRED)
-    target_link_libraries(securefs_test PRIVATE doctest::doctest)
-    add_test(NAME sec_test COMMAND securefs_test)
-endif()
+install(TARGETS securefs DESTINATION bin)
 
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND AND SECUREFS_ENABLE_INTEGRATION_TEST)
@@ -163,8 +101,8 @@ if(Python3_FOUND AND SECUREFS_ENABLE_INTEGRATION_TEST)
         COMMAND ${CMAKE_COMMAND} -E env SECUREFS_BINARY=$<TARGET_FILE:securefs>
                 ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/simple_test.py)
 endif()
+endif()
 
-install(TARGETS securefs DESTINATION bin)
 
 if(MINGW)
     target_link_libraries(securefs PRIVATE -municode)
