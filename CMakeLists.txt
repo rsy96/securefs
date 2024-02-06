@@ -39,6 +39,9 @@ target_link_libraries(
     securefs-core PUBLIC absl::base absl::span absl::strings absl::stacktrace
                          absl::pretty_function absl::strerror)
 
+find_package(fmt REQUIRED)
+target_link_libraries(securefs-core PUBLIC fmt::fmt)
+
 if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-core PUBLIC ${CMAKE_DL_LIBS})
 endif()

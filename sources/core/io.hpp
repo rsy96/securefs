@@ -7,7 +7,7 @@
 
 namespace securefs
 {
-using OffsetType = std::int64_t;
+using OffsetType = std::uint64_t;
 using SizeType = OffsetType;
 using ByteBuffer = absl::Span<unsigned char>;
 using ConstByteBuffer = absl::Span<const unsigned char>;
