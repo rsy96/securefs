@@ -17,7 +17,6 @@ if(APPLE)
     add_link_options(-Wl,-dead_strip)
 endif()
 
-
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wthread-safety)
     if(MINGW)
@@ -25,84 +24,85 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 endif()
 
-
-file(
-    GLOB
-    CORE_SOURCES
-    sources/core/*.hpp sources/core/*.cpp)
+file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp)
 add_library(securefs-core STATIC ${CORE_SOURCES})
-
+target_include_directories(securefs-core PUBLIC sources)
 
 find_package(Threads REQUIRED)
 target_link_libraries(securefs-core PUBLIC Threads::Threads)
 
-    find_package(cryptopp REQUIRED)
-    target_link_libraries(securefs-core PUBLIC cryptopp::cryptopp)
+find_package(cryptopp REQUIRED)
+target_link_libraries(securefs-core PUBLIC cryptopp::cryptopp)
+
+find_package(absl REQUIRED)
+target_link_libraries(
+    securefs-core PUBLIC absl::base absl::span absl::strings absl::stacktrace
+                         absl::pretty_function absl::strerror)
 
 if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-core PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
-
 if(0)
-	add_definitions(-D_REENTRANT -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=28
-                -DUTF8PROC_EXPORTS=1)
-if(MSVC)
-    add_executable(securefs main.cpp securefs.manifest)
-else()
-    add_executable(securefs main.cpp)
-endif()
-if(UNIX)
-    find_path(FUSE_INCLUDE_DIR fuse.h PATHS /usr/local/include/fuse
-                                            /usr/local/include)
-    if(SECUREFS_USE_FUSET)
-        find_library(FUSE_LIBRARIES fuse-t PATHS /usr/local/lib)
-    else()
-        find_library(FUSE_LIBRARIES fuse PATHS /usr/local/lib)
-    endif()
-
-    target_include_directories(securefs-static SYSTEM AFTER
-                               PUBLIC ${FUSE_INCLUDE_DIR})
-    target_link_libraries(securefs-static PUBLIC ${FUSE_LIBRARIES})
-else()
-    target_compile_options(
-        securefs-static PUBLIC -DNOMINMAX=1 -D_CRT_SECURE_NO_WARNINGS=1
-                               -D__STDC__=1 -DSTRSAFE_NO_DEPRECATE=1)
-    if(NOT WINFSP_PREFIX)
-        message("WINFSP_PREFIX not set, fallback to default value")
-        set(WINFSP_PREFIX "C:/Program Files (x86)/WinFsp")
-    endif()
-    if(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
-        set(ARCH x64)
-    else()
-        set(ARCH x86)
-    endif()
-    set(FUSE_INCLUDE_DIR ${WINFSP_PREFIX}/inc/fuse)
-    target_include_directories(securefs-static SYSTEM AFTER
-                               PUBLIC ${WINFSP_PREFIX}/inc ${FUSE_INCLUDE_DIR})
-    target_link_libraries(securefs-static
-                          PUBLIC ${WINFSP_PREFIX}/lib/winfsp-${ARCH}.lib)
-    target_link_libraries(securefs-static PUBLIC delayimp.lib)
+    add_definitions(-D_REENTRANT -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=28
+                    -DUTF8PROC_EXPORTS=1)
     if(MSVC)
+        add_executable(securefs main.cpp securefs.manifest)
+    else()
+        add_executable(securefs main.cpp)
+    endif()
+    if(UNIX)
+        find_path(FUSE_INCLUDE_DIR fuse.h PATHS /usr/local/include/fuse
+                                                /usr/local/include)
+        if(SECUREFS_USE_FUSET)
+            find_library(FUSE_LIBRARIES fuse-t PATHS /usr/local/lib)
+        else()
+            find_library(FUSE_LIBRARIES fuse PATHS /usr/local/lib)
+        endif()
+
+        target_include_directories(securefs-static SYSTEM AFTER
+                                   PUBLIC ${FUSE_INCLUDE_DIR})
+        target_link_libraries(securefs-static PUBLIC ${FUSE_LIBRARIES})
+    else()
+        target_compile_options(
+            securefs-static PUBLIC -DNOMINMAX=1 -D_CRT_SECURE_NO_WARNINGS=1
+                                   -D__STDC__=1 -DSTRSAFE_NO_DEPRECATE=1)
+        if(NOT WINFSP_PREFIX)
+            message("WINFSP_PREFIX not set, fallback to default value")
+            set(WINFSP_PREFIX "C:/Program Files (x86)/WinFsp")
+        endif()
+        if(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
+            set(ARCH x64)
+        else()
+            set(ARCH x86)
+        endif()
+        set(FUSE_INCLUDE_DIR ${WINFSP_PREFIX}/inc/fuse)
+        target_include_directories(
+            securefs-static SYSTEM AFTER PUBLIC ${WINFSP_PREFIX}/inc
+                                                ${FUSE_INCLUDE_DIR})
         target_link_libraries(securefs-static
-                              PUBLIC -DELAYLOAD:winfsp-${ARCH}.dll)
-        target_compile_options(securefs-static PUBLIC /utf-8)
-    elseif(MINGW)
-        target_link_libraries(securefs-static
-                              PUBLIC -delayload=winfsp-${ARCH}.dll)
+                              PUBLIC ${WINFSP_PREFIX}/lib/winfsp-${ARCH}.lib)
+        target_link_libraries(securefs-static PUBLIC delayimp.lib)
+        if(MSVC)
+            target_link_libraries(securefs-static
+                                  PUBLIC -DELAYLOAD:winfsp-${ARCH}.dll)
+            target_compile_options(securefs-static PUBLIC /utf-8)
+        elseif(MINGW)
+            target_link_libraries(securefs-static
+                                  PUBLIC -delayload=winfsp-${ARCH}.dll)
+        endif()
+    endif()
+    install(TARGETS securefs DESTINATION bin)
+
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_FOUND AND SECUREFS_ENABLE_INTEGRATION_TEST)
+        add_test(
+            NAME simple_test
+            COMMAND
+                ${CMAKE_COMMAND} -E env SECUREFS_BINARY=$<TARGET_FILE:securefs>
+                ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/simple_test.py)
     endif()
 endif()
-install(TARGETS securefs DESTINATION bin)
-
-find_package(Python3 COMPONENTS Interpreter)
-if(Python3_FOUND AND SECUREFS_ENABLE_INTEGRATION_TEST)
-    add_test(
-        NAME simple_test
-        COMMAND ${CMAKE_COMMAND} -E env SECUREFS_BINARY=$<TARGET_FILE:securefs>
-                ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/simple_test.py)
-endif()
-endif()
-
 
 if(MINGW)
     target_link_libraries(securefs PRIVATE -municode)
