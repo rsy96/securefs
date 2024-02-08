@@ -42,6 +42,10 @@ AesGcmRandomIO::AesGcmRandomIO(ConstByteBuffer key,
 
 SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
 {
+    if (output.empty())
+    {
+        return 0;
+    }
     std::fill(output.begin(), output.end(), 0);
 
     auto [start_block, start_residue] = divmod(offset, virtual_block_size());
@@ -76,20 +80,17 @@ SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
         }
         auto current_block_plaintext
             = plaintext.subspan(i * virtual_block_size(), virtual_block_size());
-        bool success = decryptor_.DecryptAndVerify(current_block_plaintext.begin(),
-                                                   current_block_ciphertext.end() - MAC_SIZE,
-                                                   MAC_SIZE,
-                                                   current_block_ciphertext.begin(),
-                                                   IV_SIZE,
-                                                   nullptr,
-                                                   0,
-                                                   current_block_ciphertext.begin() + IV_SIZE,
-                                                   current_block_plaintext.size());
+        bool success
+            = decrypt_block(current_block_plaintext, current_block_ciphertext, i + start_block);
         if (!success)
         {
             throw CryptoVerificationException(
                 fmt::format("File block {} failed verification", i + start_block));
         }
+    }
+    if (start_residue > plaintext.size())
+    {
+        return 0;
     }
     auto copy_source = plaintext.subspan(start_residue, output.size());
     std::copy(copy_source.begin(), copy_source.end(), output.begin());
@@ -98,6 +99,10 @@ SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
 
 void AesGcmRandomIO::write(OffsetType offset, ConstByteBuffer input)
 {
+    if (input.empty())
+    {
+        return;
+    }
     auto [start_block, start_residue] = divmod(offset, virtual_block_size());
     auto [end_block, end_residue] = divmod(offset + input.size(), virtual_block_size());
 
@@ -132,20 +137,9 @@ void AesGcmRandomIO::write(OffsetType offset, ConstByteBuffer input)
     {
         auto current_block_plaintext
             = plaintext.subspan(i * virtual_block_size(), virtual_block_size());
-        auto iv = ciphertext.subspan(i * underlying_block_size(), IV_SIZE);
-        do
-        {
-            generate_random(iv);
-        } while (is_all_zeros(iv));
-        encryptor_.EncryptAndAuthenticate(iv.end(),
-                                          iv.end() + current_block_plaintext.size(),
-                                          MAC_SIZE,
-                                          iv.begin(),
-                                          IV_SIZE,
-                                          nullptr,
-                                          0,
-                                          current_block_plaintext.begin(),
-                                          current_block_plaintext.size());
+        encrypt_block(current_block_plaintext,
+                      ciphertext.subspan(i * underlying_block_size(), underlying_block_size()),
+                      i + start_block);
     }
     delegate_->write(start_block * underlying_block_size(), ciphertext);
 }
@@ -168,6 +162,18 @@ void AesGcmRandomIO::resize(SizeType new_size)
         return;
     }
     auto [blocks, residue] = divmod(new_size, virtual_block_size());
+    auto [current_blocks, current_residue] = divmod(current_size, virtual_block_size());
+
+    if (blocks == current_blocks)
+    {
+        std::vector<unsigned char> last_block(current_residue);
+        if (read(blocks * virtual_block_size(), absl::MakeSpan(last_block)) != current_residue)
+        {
+            throw std::runtime_error("Delegate size changed concurrently");
+        }
+        last_block.resize(residue);
+    }
+
     if (new_size < current_size)
     {
         delegate_->resize(blocks * underlying_block_size());
@@ -179,7 +185,6 @@ void AesGcmRandomIO::resize(SizeType new_size)
     }
     else if (new_size > current_size)
     {
-        auto [current_blocks, current_residue] = divmod(current_size, virtual_block_size());
         if (current_residue > 0)
         {
             std::vector<unsigned char> data(virtual_block_size());
@@ -195,6 +200,49 @@ SizeType AesGcmRandomIO::compute_virtual_size(SizeType underlying_size,
 {
     auto [blocks, residue] = divmod(underlying_size, underlying_block_size);
     return blocks * (underlying_block_size - OVERHEAD) + subtract_if_greater(residue, OVERHEAD);
+}
+
+void AesGcmRandomIO::encrypt_block(ConstByteBuffer plaintext,
+                                   ByteBuffer ciphertext,
+                                   OffsetType block_num)
+{
+    if (plaintext.size() + OVERHEAD != ciphertext.size())
+    {
+        throw std::invalid_argument("Ciphertext buffer size does not match plaintext");
+    }
+    auto iv = ciphertext.subspan(0, IV_SIZE);
+    do
+    {
+        generate_random(iv);
+    } while (is_all_zeros(iv));
+    encryptor_.EncryptAndAuthenticate(iv.end(),
+                                      iv.end() + plaintext.size(),
+                                      MAC_SIZE,
+                                      iv.begin(),
+                                      IV_SIZE,
+                                      nullptr,
+                                      0,
+                                      plaintext.begin(),
+                                      plaintext.size());
+}
+
+bool AesGcmRandomIO::decrypt_block(ByteBuffer plaintext,
+                                   ConstByteBuffer ciphertext,
+                                   OffsetType block_num)
+{
+    if (plaintext.size() + OVERHEAD != ciphertext.size())
+    {
+        throw std::invalid_argument("Ciphertext buffer size does not match plaintext");
+    }
+    return decryptor_.DecryptAndVerify(plaintext.begin(),
+                                       ciphertext.end() - MAC_SIZE,
+                                       MAC_SIZE,
+                                       ciphertext.begin(),
+                                       IV_SIZE,
+                                       nullptr,
+                                       0,
+                                       ciphertext.begin() + IV_SIZE,
+                                       plaintext.size());
 }
 
 }    // namespace securefs

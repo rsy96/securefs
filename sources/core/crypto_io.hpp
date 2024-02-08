@@ -31,6 +31,9 @@ private:
     CryptoPP::GCM<CryptoPP::AES>::Decryption decryptor_;
     std::shared_ptr<RandomIO> delegate_;
     SizeType underlying_block_size_;
+
+    void encrypt_block(ConstByteBuffer plaintext, ByteBuffer ciphertext, OffsetType block_num);
+    bool decrypt_block(ByteBuffer plaintext, ConstByteBuffer ciphertext, OffsetType block_num);
 };
 
 class CryptoVerificationException : public std::runtime_error
