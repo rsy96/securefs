@@ -10,8 +10,12 @@ MemoryRandomIO::~MemoryRandomIO() {}
 
 SizeType MemoryRandomIO::read(OffsetType offset, ByteBuffer output)
 {
+    if (offset >= data_.size())
+    {
+        return 0;
+    }
     auto source = absl::MakeConstSpan(data_).subspan(offset, output.size());
-    std::copy(source.begin(), source.end(), output);
+    std::copy(source.begin(), source.end(), output.begin());
     return source.size();
 }
 
@@ -21,8 +25,7 @@ void MemoryRandomIO::write(OffsetType offset, ConstByteBuffer input)
     {
         data_.resize(offset + input.size());
     }
-    auto target = absl::MakeSpan(data_).subspan(offset, input.size());
-    std::copy(input.begin(), input.end(), target.begin());
+    std::copy(input.begin(), input.end(), data_.begin() + offset);
 }
 
 SizeType MemoryRandomIO::size() const { return data_.size(); }

@@ -125,7 +125,7 @@ void AesGcmRandomIO::write(OffsetType offset, ConstByteBuffer input)
         ciphertext = ciphertext.subspan(
             0, ciphertext.size() + end_residue + OVERHEAD - underlying_block_size());
     }
-    assert(input.size() >= plaintext.size() + start_residue);
+    assert(input.size() <= plaintext.size() + start_residue);
     std::copy(input.begin(), input.end(), plaintext.begin() + start_residue);
 
     for (OffsetType i = 0; i < num_blocks; ++i)
