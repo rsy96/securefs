@@ -6,3 +6,6 @@ fmt/10.2.1
 [generators]
 CMakeDeps
 CMakeToolchain
+
+[layout]
+cmake_layout

@@ -24,6 +24,8 @@ public:
     SizeType virtual_block_size() const noexcept { return virtual_block_size_; }
     SizeType underlying_block_size() const noexcept { return virtual_block_size_ + OVERHEAD; }
 
+    static SizeType compute_virtual_size(SizeType underlyingSize);
+
 private:
     CryptoPP::GCM<CryptoPP::AES>::Encryption encryptor_;
     CryptoPP::GCM<CryptoPP::AES>::Decryption decryptor_;
