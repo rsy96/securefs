@@ -18,6 +18,8 @@ public:
     virtual SizeType read(OffsetType offset, ByteBuffer output) = 0;
     virtual void write(OffsetType offset, ConstByteBuffer input) = 0;
     virtual SizeType size() const = 0;
-    virtual void resize(SizeType newSize) = 0;
+
+    // Resize to the new size. If new size is greater, filling the difference with zeros.
+    virtual void resize(SizeType new_size) = 0;
 };
 }    // namespace securefs

@@ -3,6 +3,7 @@
 
 #include <fmt/format.h>
 
+#include "crypto_io.hpp"
 #include <algorithm>
 
 namespace securefs
@@ -27,13 +28,13 @@ static bool is_all_zeros(ConstByteBuffer buffer)
 }
 
 AesGcmRandomIO::AesGcmRandomIO(ConstByteBuffer key,
-                               SizeType virtual_block_size,
+                               SizeType underlying_block_size,
                                std::shared_ptr<RandomIO> delegate)
-    : delegate_(std::move(delegate)), virtual_block_size_(virtual_block_size)
+    : delegate_(std::move(delegate)), underlying_block_size_(underlying_block_size)
 {
-    if (virtual_block_size <= 0)
+    if (underlying_block_size_ <= OVERHEAD)
     {
-        throw std::invalid_argument("Negative block size");
+        throw std::invalid_argument("Too small block size");
     }
     encryptor_.SetKeyWithIV(key.data(), key.size(), NULL_IV, sizeof(NULL_IV));
     decryptor_.SetKeyWithIV(key.data(), key.size(), NULL_IV, sizeof(NULL_IV));
@@ -148,4 +149,52 @@ void AesGcmRandomIO::write(OffsetType offset, ConstByteBuffer input)
     }
     delegate_->write(start_block * underlying_block_size(), ciphertext);
 }
+
+SizeType AesGcmRandomIO::size() const
+{
+    return compute_virtual_size(delegate_->size(), underlying_block_size());
+}
+
+void AesGcmRandomIO::resize(SizeType new_size)
+{
+    if (new_size <= 0)
+    {
+        delegate_->resize(0);
+        return;
+    }
+    auto current_size = size();
+    if (current_size == new_size)
+    {
+        return;
+    }
+    auto [blocks, residue] = divmod(new_size, virtual_block_size());
+    if (new_size < current_size)
+    {
+        delegate_->resize(blocks * underlying_block_size());
+        if (residue > 0)
+        {
+            // We need to resize this twice to ensure that the residual part is zeroed.
+            delegate_->resize(blocks * underlying_block_size() + residue + OVERHEAD);
+        }
+    }
+    else if (new_size > current_size)
+    {
+        auto [current_blocks, current_residue] = divmod(current_size, virtual_block_size());
+        if (current_residue > 0)
+        {
+            std::vector<unsigned char> data(virtual_block_size());
+            (void)read(current_blocks * virtual_block_size(), ByteBuffer(data));
+            write(current_blocks * virtual_block_size(), ConstByteBuffer(data));
+        }
+        delegate_->resize(blocks * underlying_block_size() + residue + OVERHEAD);
+    }
+}
+
+SizeType AesGcmRandomIO::compute_virtual_size(SizeType underlying_size,
+                                              SizeType underlying_block_size)
+{
+    auto [blocks, residue] = divmod(underlying_size, underlying_block_size);
+    return blocks * (underlying_block_size - OVERHEAD) + subtract_if_greater(residue, OVERHEAD);
+}
+
 }    // namespace securefs
