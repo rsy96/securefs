@@ -2,6 +2,7 @@
 cryptopp/8.9.0
 abseil/20230802.1
 fmt/10.2.1
+doctest/2.4.11
 
 [generators]
 CMakeDeps

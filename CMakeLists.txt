@@ -42,6 +42,12 @@ target_link_libraries(
 find_package(fmt REQUIRED)
 target_link_libraries(securefs-core PUBLIC fmt::fmt)
 
+file(GLOB TEST_CORE_SOURCES test/core/*.hpp test/core/*.cpp test/test_main.cpp)
+add_executable(securefs-test ${TEST_CORE_SOURCES})
+find_package(doctest REQUIRED)
+target_link_libraries(securefs-test PRIVATE doctest::doctest)
+add_test(NAME securefs-test COMMAND securefs-test)
+
 if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-core PUBLIC ${CMAKE_DL_LIBS})
 endif()
