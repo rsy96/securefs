@@ -4,6 +4,7 @@
 
 #include "memory_io.hpp"
 
+#include <absl/cleanup/cleanup.h>
 #include <doctest/doctest.h>
 #include <fmt/format.h>
 
@@ -35,7 +36,7 @@ namespace securefs
 static std::vector<unsigned char> read_all(RandomIO& io)
 {
     std::vector<unsigned char> result(io.size());
-    CHECK(io.read(0, absl::MakeSpan(result)) == result.size());
+    REQUIRE(io.read(0, absl::MakeSpan(result)) == result.size());
     return result;
 }
 
@@ -54,7 +55,7 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
         switch (opcode)
         {
         case 0:
-            CHECK(reference_io.size() == tested_io.size());
+            REQUIRE(reference_io.size() == tested_io.size());
             break;
 
         case 1:
@@ -62,7 +63,7 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
             auto size = resizedist(mt);
             reference_io.resize(size);
             tested_io.resize(size);
-            CHECK(read_all(reference_io) == read_all(tested_io));
+            REQUIRE(read_all(reference_io) == read_all(tested_io));
             break;
         }
 
@@ -71,9 +72,9 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
             auto offset = offsetdist(mt);
             auto size = sizedist(mt);
             std::vector<unsigned char> a(size), b(size);
-            CHECK(reference_io.read(offset, absl::MakeSpan(a))
-                  == tested_io.read(offset, absl::MakeSpan(b)));
-            CHECK(a == b);
+            REQUIRE(reference_io.read(offset, absl::MakeSpan(a))
+                    == tested_io.read(offset, absl::MakeSpan(b)));
+            REQUIRE(a == b);
             break;
         }
 
@@ -85,8 +86,8 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
             generate_random(absl::MakeSpan(data));
             reference_io.write(offset, absl::MakeConstSpan(data));
             tested_io.write(offset, absl::MakeConstSpan(data));
-            CHECK(reference_io.size() == tested_io.size());
-            CHECK(read_all(reference_io) == read_all(tested_io));
+            REQUIRE(reference_io.size() == tested_io.size());
+            REQUIRE(read_all(reference_io) == read_all(tested_io));
             break;
         }
 
@@ -110,5 +111,17 @@ TEST_CASE("sqlite io against memory io")
 {
     MemoryRandomIO referece_io;
     auto vfs = sqlite3_vfs_find(nullptr);
+    auto file = static_cast<sqlite3_file*>(malloc(vfs->szOsFile));
+    auto guard_file = absl::MakeCleanup([file]() { free(file); });
+
+    REQUIRE(vfs->xOpen(vfs,
+                       nullptr,
+                       file,
+                       SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                       nullptr)
+            == SQLITE_OK);
+
+    SqliteFileIO file_io(file);
+    validate(referece_io, file_io);
 }
 }    // namespace securefs

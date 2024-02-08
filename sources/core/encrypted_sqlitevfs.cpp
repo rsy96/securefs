@@ -26,9 +26,22 @@ SqliteFileIO::SqliteFileIO(sqlite3_file* file) : file_(file)
 SqliteFileIO::~SqliteFileIO() { file_->pMethods->xClose(file_); }
 SizeType SqliteFileIO::read(OffsetType offset, ByteBuffer output)
 {
+    if (output.empty())
+    {
+        return 0;
+    }
     if (output.size() >= std::numeric_limits<int>::max())
     {
         throw std::out_of_range("Too large buffer");
+    }
+    auto current_size = size();
+    if (offset >= current_size)
+    {
+        return 0;
+    }
+    if (offset + output.size() > current_size)
+    {
+        output = output.subspan(0, current_size - offset);
     }
     check_sqlite_call(
         file_->pMethods->xRead(file_, output.data(), static_cast<int>(output.size()), offset));
@@ -36,6 +49,10 @@ SizeType SqliteFileIO::read(OffsetType offset, ByteBuffer output)
 }
 void SqliteFileIO::write(OffsetType offset, ConstByteBuffer input)
 {
+    if (input.empty())
+    {
+        return;
+    }
     if (input.size() >= std::numeric_limits<int>::max())
     {
         throw std::out_of_range("Too large buffer");
