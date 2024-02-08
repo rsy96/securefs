@@ -53,7 +53,7 @@ TEST_CASE("crypto io against memory io")
     std::uniform_int_distribution<SizeType> sizedist(0, 200);
     std::uniform_int_distribution<SizeType> resizedist(0, 400);
 
-    for (int i = 0; i < 10000; ++i)
+    for (int i = 0; i < 100000; ++i)
     {
         int opcode = opdist(mt);
         switch (opcode)
@@ -62,13 +62,9 @@ TEST_CASE("crypto io against memory io")
             CHECK(mio.size() == aesio.size());
             break;
 
-        case 11:
+        case 1:
         {
             auto size = resizedist(mt);
-            if (size <= mio.size())
-            {
-                continue;
-            }
             mio.resize(size);
             aesio.resize(size);
             CHECK(read_all(mio) == read_all(aesio));
@@ -93,6 +89,7 @@ TEST_CASE("crypto io against memory io")
             generate_random(absl::MakeSpan(data));
             mio.write(offset, absl::MakeConstSpan(data));
             aesio.write(offset, absl::MakeConstSpan(data));
+            CHECK(mio.size() == aesio.size());
             CHECK(read_all(mio) == read_all(aesio));
             break;
         }

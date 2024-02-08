@@ -103,6 +103,10 @@ void AesGcmRandomIO::write(OffsetType offset, ConstByteBuffer input)
     {
         return;
     }
+    if (offset > size())
+    {
+        resize(offset);
+    }
     auto [start_block, start_residue] = divmod(offset, virtual_block_size());
     auto [end_block, end_residue] = divmod(offset + input.size(), virtual_block_size());
 
