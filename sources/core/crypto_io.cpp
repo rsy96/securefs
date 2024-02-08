@@ -191,7 +191,29 @@ void AesGcmRandomIO::resize(SizeType new_size)
             }
         }
     }
-    else if (new_blocks > current_blocks)
+    else if (new_blocks < current_blocks)
+    {
+        if (new_residue == 0)
+        {
+            delegate_->resize(new_blocks * underlying_block_size());
+        }
+        else
+        {
+            std::vector<unsigned char> working_set(virtual_block_size() + underlying_block_size());
+            auto plaintext = ByteBuffer(working_set.data(), virtual_block_size());
+            auto ciphertext = ByteBuffer(plaintext.end(), underlying_block_size());
+            if (read(new_blocks * virtual_block_size(), plaintext) != plaintext.size())
+            {
+                throw std::runtime_error("Delegate size changed concurrently");
+            }
+            plaintext = plaintext.subspan(0, new_residue);
+            ciphertext = ciphertext.subspan(0, new_residue + OVERHEAD);
+            encrypt_block(plaintext, ciphertext, new_blocks);
+            delegate_->write(new_blocks * underlying_block_size(), ciphertext);
+            delegate_->resize(new_blocks * underlying_block_size() + ciphertext.size());
+        }
+    }
+    else
     {
         if (current_residue > 0)
         {
