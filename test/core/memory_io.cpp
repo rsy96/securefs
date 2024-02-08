@@ -10,7 +10,7 @@ MemoryRandomIO::~MemoryRandomIO() {}
 
 SizeType MemoryRandomIO::read(OffsetType offset, ByteBuffer output)
 {
-    if (offset >= data_.size())
+    if (offset >= data_.size() || output.empty())
     {
         return 0;
     }
@@ -21,6 +21,10 @@ SizeType MemoryRandomIO::read(OffsetType offset, ByteBuffer output)
 
 void MemoryRandomIO::write(OffsetType offset, ConstByteBuffer input)
 {
+    if (input.empty())
+    {
+        return;
+    }
     if (offset + input.size() > data_.size())
     {
         data_.resize(offset + input.size());
