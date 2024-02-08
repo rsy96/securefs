@@ -161,37 +161,52 @@ void AesGcmRandomIO::resize(SizeType new_size)
     {
         return;
     }
-    auto [blocks, residue] = divmod(new_size, virtual_block_size());
+    auto [new_blocks, new_residue] = divmod(new_size, virtual_block_size());
     auto [current_blocks, current_residue] = divmod(current_size, virtual_block_size());
 
-    if (blocks == current_blocks)
+    if (new_blocks == current_blocks)
     {
-        std::vector<unsigned char> last_block(current_residue);
-        if (read(blocks * virtual_block_size(), absl::MakeSpan(last_block)) != current_residue)
+        if (new_residue == 0)
         {
-            throw std::runtime_error("Delegate size changed concurrently");
+            delegate_->resize(new_blocks * underlying_block_size());
         }
-        last_block.resize(residue);
-    }
-
-    if (new_size < current_size)
-    {
-        delegate_->resize(blocks * underlying_block_size());
-        if (residue > 0)
+        else
         {
-            // We need to resize this twice to ensure that the residual part is zeroed.
-            delegate_->resize(blocks * underlying_block_size() + residue + OVERHEAD);
+            std::vector<unsigned char> working_set(2 * std::max(current_residue, new_residue)
+                                                   + OVERHEAD);
+            auto plaintext = ByteBuffer(working_set.data(), current_residue);
+            auto ciphertext
+                = ByteBuffer(working_set.data() + working_set.size() - new_residue - OVERHEAD,
+                             new_residue + OVERHEAD);
+            if (read(current_blocks * virtual_block_size(), plaintext) != current_residue)
+            {
+                throw std::runtime_error("Delegate size changed concurrently");
+            }
+            plaintext = ByteBuffer(working_set.data(), new_residue);
+            encrypt_block(plaintext, ciphertext, current_blocks);
+            delegate_->write(current_blocks * underlying_block_size(), ciphertext);
+            if (new_residue < current_residue)
+            {
+                delegate_->resize(new_blocks * underlying_block_size() + ciphertext.size());
+            }
         }
     }
-    else if (new_size > current_size)
+    else if (new_blocks > current_blocks)
     {
         if (current_residue > 0)
         {
-            std::vector<unsigned char> data(virtual_block_size());
-            (void)read(current_blocks * virtual_block_size(), ByteBuffer(data));
-            write(current_blocks * virtual_block_size(), ConstByteBuffer(data));
+            std::vector<unsigned char> working_set(virtual_block_size() + underlying_block_size());
+            auto plaintext = ByteBuffer(working_set.data(), virtual_block_size());
+            auto ciphertext = ByteBuffer(plaintext.end(), underlying_block_size());
+            if (read(current_blocks * virtual_block_size(), plaintext) != current_residue)
+            {
+                throw std::runtime_error("Delegate size changed concurrently");
+            }
+            encrypt_block(plaintext, ciphertext, current_blocks);
+            delegate_->write(current_blocks * underlying_block_size(), ciphertext);
         }
-        delegate_->resize(blocks * underlying_block_size() + residue + OVERHEAD);
+        delegate_->resize(new_blocks * underlying_block_size()
+                          + (new_residue > 0 ? new_residue + OVERHEAD : 0));
     }
 }
 

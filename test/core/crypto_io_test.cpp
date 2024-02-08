@@ -64,9 +64,8 @@ TEST_CASE("crypto io against memory io")
 
         case 1:
         {
-            continue;
             auto size = resizedist(mt);
-            if (size > mio.size())
+            if (size < mio.size())
             {
                 continue;
             }
