@@ -28,19 +28,17 @@ file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp)
 add_library(securefs-core STATIC ${CORE_SOURCES})
 target_include_directories(securefs-core PUBLIC sources)
 
-find_package(Threads REQUIRED)
-target_link_libraries(securefs-core PUBLIC Threads::Threads)
+find_package(Threads)
+find_package(cryptopp)
+find_package(absl)
+find_package(fmt)
+find_package(doctest)
+find_package(SQLite3)
+find_package(SQLiteCpp)
 
-find_package(cryptopp REQUIRED)
-target_link_libraries(securefs-core PUBLIC cryptopp::cryptopp)
-
-find_package(absl REQUIRED)
 target_link_libraries(
-    securefs-core PUBLIC absl::base absl::span absl::strings absl::stacktrace
-                         absl::pretty_function absl::strerror)
-
-find_package(fmt REQUIRED)
-target_link_libraries(securefs-core PUBLIC fmt::fmt)
+    securefs-core PUBLIC Threads::Threads cryptopp::cryptopp abseil::abseil
+                         fmt::fmt SQLite::SQLite3 SQLiteCpp)
 
 file(GLOB TEST_CORE_SOURCES test/core/*.hpp test/core/*.cpp test/test_main.cpp)
 add_executable(securefs-test ${TEST_CORE_SOURCES})

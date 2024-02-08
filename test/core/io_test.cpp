@@ -1,4 +1,5 @@
 #include "core/crypto_io.hpp"
+#include "core/encrypted_sqlitevfs.hpp"
 #include "core/rng.hpp"
 
 #include "memory_io.hpp"
@@ -38,14 +39,8 @@ static std::vector<unsigned char> read_all(RandomIO& io)
     return result;
 }
 
-TEST_CASE("crypto io against memory io")
+static void validate(RandomIO& reference_io, RandomIO& tested_io)
 {
-    std::array<unsigned char, 32> key;
-    generate_random(key.data(), key.size());
-
-    MemoryRandomIO mio;
-    AesGcmRandomIO aesio(key, 64, std::make_shared<MemoryRandomIO>());
-
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_int_distribution<int> opdist(0, 3);
@@ -59,15 +54,15 @@ TEST_CASE("crypto io against memory io")
         switch (opcode)
         {
         case 0:
-            CHECK(mio.size() == aesio.size());
+            CHECK(reference_io.size() == tested_io.size());
             break;
 
         case 1:
         {
             auto size = resizedist(mt);
-            mio.resize(size);
-            aesio.resize(size);
-            CHECK(read_all(mio) == read_all(aesio));
+            reference_io.resize(size);
+            tested_io.resize(size);
+            CHECK(read_all(reference_io) == read_all(tested_io));
             break;
         }
 
@@ -76,7 +71,8 @@ TEST_CASE("crypto io against memory io")
             auto offset = offsetdist(mt);
             auto size = sizedist(mt);
             std::vector<unsigned char> a(size), b(size);
-            CHECK(mio.read(offset, absl::MakeSpan(a)) == aesio.read(offset, absl::MakeSpan(b)));
+            CHECK(reference_io.read(offset, absl::MakeSpan(a))
+                  == tested_io.read(offset, absl::MakeSpan(b)));
             CHECK(a == b);
             break;
         }
@@ -87,10 +83,10 @@ TEST_CASE("crypto io against memory io")
             auto size = sizedist(mt);
             std::vector<unsigned char> data(size);
             generate_random(absl::MakeSpan(data));
-            mio.write(offset, absl::MakeConstSpan(data));
-            aesio.write(offset, absl::MakeConstSpan(data));
-            CHECK(mio.size() == aesio.size());
-            CHECK(read_all(mio) == read_all(aesio));
+            reference_io.write(offset, absl::MakeConstSpan(data));
+            tested_io.write(offset, absl::MakeConstSpan(data));
+            CHECK(reference_io.size() == tested_io.size());
+            CHECK(read_all(reference_io) == read_all(tested_io));
             break;
         }
 
@@ -98,5 +94,21 @@ TEST_CASE("crypto io against memory io")
             break;
         }
     }
+}
+
+TEST_CASE("crypto io against memory io")
+{
+    std::array<unsigned char, 32> key;
+    generate_random(key.data(), key.size());
+
+    MemoryRandomIO reference_io;
+    AesGcmRandomIO tested_io(key, 64, std::make_shared<MemoryRandomIO>());
+    validate(reference_io, tested_io);
+}
+
+TEST_CASE("sqlite io against memory io")
+{
+    MemoryRandomIO referece_io;
+    auto vfs = sqlite3_vfs_find(nullptr);
 }
 }    // namespace securefs
