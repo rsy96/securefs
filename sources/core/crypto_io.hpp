@@ -8,7 +8,7 @@
 
 namespace securefs
 {
-class AesGcmRandomIO : public RandomIO
+class AesGcmRandomIO final : public RandomIO
 {
 public:
     static constexpr SizeType IV_SIZE = 12, MAC_SIZE = 16, OVERHEAD = IV_SIZE + MAC_SIZE;
