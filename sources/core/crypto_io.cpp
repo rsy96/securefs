@@ -1,9 +1,9 @@
 #include "core/crypto_io.hpp"
 #include "core/rng.hpp"
 
+#include <absl/base/internal/endian.h>
 #include <fmt/format.h>
 
-#include "crypto_io.hpp"
 #include <algorithm>
 
 namespace securefs
@@ -27,17 +27,15 @@ static bool is_all_zeros(ConstByteBuffer buffer)
     return std::all_of(buffer.begin(), buffer.end(), [](auto c) { return c == 0; });
 }
 
-AesGcmRandomIO::AesGcmRandomIO(ConstByteBuffer key,
-                               SizeType underlying_block_size,
-                               std::shared_ptr<RandomIO> delegate)
-    : delegate_(std::move(delegate)), underlying_block_size_(underlying_block_size)
+AesGcmRandomIO::AesGcmRandomIO(std::shared_ptr<RandomIO> delegate, Params params)
+    : delegate_(std::move(delegate)), params_(std::move(params))
 {
-    if (underlying_block_size_ <= OVERHEAD)
+    if (params_.underlying_block_size <= OVERHEAD)
     {
         throw std::invalid_argument("Too small block size");
     }
-    encryptor_.SetKeyWithIV(key.data(), key.size(), NULL_IV, sizeof(NULL_IV));
-    decryptor_.SetKeyWithIV(key.data(), key.size(), NULL_IV, sizeof(NULL_IV));
+    encryptor_.SetKeyWithIV(params_.key.data(), params_.key.size(), NULL_IV, sizeof(NULL_IV));
+    decryptor_.SetKeyWithIV(params_.key.data(), params_.key.size(), NULL_IV, sizeof(NULL_IV));
 }
 
 SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
@@ -256,13 +254,14 @@ void AesGcmRandomIO::encrypt_block(ConstByteBuffer plaintext,
     {
         generate_random(iv);
     } while (is_all_zeros(iv));
+    std::uint64_t little_endian_block_num = absl::little_endian::FromHost64(block_num);
     encryptor_.EncryptAndAuthenticate(iv.end(),
                                       iv.end() + plaintext.size(),
                                       MAC_SIZE,
                                       iv.begin(),
                                       IV_SIZE,
-                                      nullptr,
-                                      0,
+                                      reinterpret_cast<unsigned char*>(&little_endian_block_num),
+                                      sizeof(little_endian_block_num),
                                       plaintext.begin(),
                                       plaintext.size());
 }
@@ -275,13 +274,14 @@ bool AesGcmRandomIO::decrypt_block(ByteBuffer plaintext,
     {
         throw std::invalid_argument("Ciphertext buffer size does not match plaintext");
     }
+    std::uint64_t little_endian_block_num = absl::little_endian::FromHost64(block_num);
     return decryptor_.DecryptAndVerify(plaintext.begin(),
                                        ciphertext.end() - MAC_SIZE,
                                        MAC_SIZE,
                                        ciphertext.begin(),
                                        IV_SIZE,
-                                       nullptr,
-                                       0,
+                                       reinterpret_cast<unsigned char*>(&little_endian_block_num),
+                                       sizeof(little_endian_block_num),
                                        ciphertext.begin() + IV_SIZE,
                                        plaintext.size());
 }

@@ -99,11 +99,12 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
 
 TEST_CASE("crypto io against memory io")
 {
-    std::array<unsigned char, 32> key;
-    generate_random(key.data(), key.size());
+    AesGcmRandomIO::Params params;
+    generate_random(params.key.data(), params.key.size());
+    params.underlying_block_size = 64;
 
     MemoryRandomIO reference_io;
-    AesGcmRandomIO tested_io(key, 64, std::make_shared<MemoryRandomIO>());
+    AesGcmRandomIO tested_io(std::make_shared<MemoryRandomIO>(), params);
     validate(reference_io, tested_io);
 }
 
