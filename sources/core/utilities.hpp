@@ -30,4 +30,6 @@ inline std::string hexify(std::string_view view)
     return hexify(
         absl::MakeConstSpan(reinterpret_cast<const unsigned char*>(view.data()), view.size()));
 }
+
+std::string random_hex_string(size_t num_bytes);
 }    // namespace securefs

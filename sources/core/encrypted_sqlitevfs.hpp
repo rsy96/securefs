@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/crypto_io.hpp"
 #include "core/io.hpp"
 
 #include <sqlite3.h>

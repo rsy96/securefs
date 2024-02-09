@@ -347,6 +347,20 @@ namespace
                         return impl->xFileControl(op, pArg);
                     });
             };
+
+            io_methods.xDeviceCharacteristics = [](sqlite3_file* f)
+            {
+                return safe_sqlite_call(
+                    [=]()
+                    {
+                        auto impl = static_cast<EncryptedSqliteFile*>(f)->impl;
+                        if (!impl)
+                        {
+                            return SQLITE_MISUSE;
+                        }
+                        return impl->xDeviceCharacteristics();
+                    });
+            };
         }
     };
 
@@ -393,12 +407,11 @@ namespace
 EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params params,
                                                        const char* base_vfs_name)
 {
-    std::array<unsigned char, 16> buffer;
-    generate_random(absl::MakeSpan(buffer));
-    vfs_name_ = "securefs-" + hexify(buffer);
+    vfs_name_ = "securefs-" + random_hex_string(8);
 
     data_.reset(new EncryptedVfsAppData());
     data_->vfs = sqlite3_vfs_find(base_vfs_name);
+    data_->params = std::move(params);
     if (!data_->vfs)
     {
         throw std::invalid_argument(

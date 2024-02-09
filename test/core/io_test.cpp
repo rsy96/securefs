@@ -45,7 +45,7 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
     std::uniform_int_distribution<SizeType> sizedist(0, 200);
     std::uniform_int_distribution<SizeType> resizedist(0, 400);
 
-    for (int i = 0; i < 100000; ++i)
+    for (int i = 0; i < 100; ++i)
     {
         int opcode = opdist(mt);
         switch (opcode)
@@ -95,30 +95,39 @@ static void validate(RandomIO& reference_io, RandomIO& tested_io)
 
 TEST_CASE("crypto io against memory io")
 {
-    AesGcmRandomIO::Params params;
-    generate_random(params.key.data(), params.key.size());
-    params.underlying_block_size = 64;
+    for (int i = 0; i < 100; ++i)
+    {
+        AesGcmRandomIO::Params params;
+        generate_random(params.key.data(), params.key.size());
+        params.underlying_block_size = 64;
 
-    MemoryRandomIO reference_io;
-    AesGcmRandomIO tested_io(std::make_shared<MemoryRandomIO>(), params);
-    validate(reference_io, tested_io);
+        MemoryRandomIO reference_io;
+        AesGcmRandomIO tested_io(std::make_shared<MemoryRandomIO>(), params);
+        validate(reference_io, tested_io);
+    }
 }
 
 TEST_CASE("sqlite io against memory io")
 {
-    MemoryRandomIO referece_io;
-    auto vfs = sqlite3_vfs_find(nullptr);
-    auto file = static_cast<sqlite3_file*>(malloc(vfs->szOsFile));
-    auto guard_file = absl::MakeCleanup([file]() { free(file); });
+    for (int i = 0; i < 100; ++i)
+    {
+        auto filename = random_hex_string(8) + ".sqliteraw";
+        auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
-    REQUIRE(vfs->xOpen(vfs,
-                       nullptr,
-                       file,
-                       SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                       nullptr)
-            == SQLITE_OK);
+        MemoryRandomIO referece_io;
+        auto vfs = sqlite3_vfs_find(nullptr);
+        auto file = static_cast<sqlite3_file*>(malloc(vfs->szOsFile));
+        auto guard_file = absl::MakeCleanup([file]() { free(file); });
 
-    SqliteFileIO file_io(file);
-    validate(referece_io, file_io);
+        REQUIRE(vfs->xOpen(vfs,
+                           filename.c_str(),
+                           file,
+                           SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                           nullptr)
+                == SQLITE_OK);
+
+        SqliteFileIO file_io(file);
+        validate(referece_io, file_io);
+    }
 }
 }    // namespace securefs
