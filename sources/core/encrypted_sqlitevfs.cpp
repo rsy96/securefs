@@ -1,8 +1,11 @@
 #include "core/crypto_io.hpp"
 #include "core/encrypted_sqlitevfs.hpp"
+#include "core/rng.hpp"
 #include "core/utilities.hpp"
 
 #include <SQLiteCpp/Exception.h>
+#include <fmt/compile.h>
+#include <fmt/format.h>
 
 #include <limits>
 #include <memory>
@@ -78,29 +81,22 @@ void SqliteFileIO::resize(SizeType new_size)
 namespace
 {
 
-    struct SqliteFileCleanup
-    {
-        void operator()(sqlite3_file* file)
-        {
-            if (!file)
-            {
-                return;
-            }
-            file->pMethods->xClose(file);
-            free(file);
-        }
-    };
-
     // We separate the implementation in a separate class to ensure that `EncryptedSqliteFile` is a
     // PoD so that it can interface with C-methods of sqlite3 safely.
     class EncryptedSqliteFileImpl
     {
     private:
-        std::unique_ptr<sqlite3_file, SqliteFileCleanup> delegate_;
+        C_unique_ptr<sqlite3_file> delegate_;
         std::unique_ptr<AesGcmRandomIO> io_;
 
     public:
-        explicit EncryptedSqliteFileImpl() {}
+        explicit EncryptedSqliteFileImpl(C_unique_ptr<sqlite3_file> delegate,
+                                         AesGcmRandomIO::Params params)
+            : delegate_(std::move(delegate))
+        {
+            io_ = std::make_unique<AesGcmRandomIO>(std::make_shared<SqliteFileIO>(delegate_.get()),
+                                                   std::move(params));
+        }
         ~EncryptedSqliteFileImpl() {}
 
         int xRead(void* buffer, int iAmt, sqlite3_int64 iOfst)
@@ -184,6 +180,20 @@ namespace
 
     private:
     };
+
+    template <class Callable>
+    static int safe_sqlite_call(Callable&& callable)
+    {
+        try
+        {
+            return callable();
+        }
+        catch (const std::exception& e)
+        {
+            // TODO: add debug logging.
+            return SQLITE_IOERR;
+        }
+    }
 
     struct EncryptedSqliteFile : public sqlite3_file
     {
@@ -337,48 +347,99 @@ namespace
                     });
             };
         }
-
-        template <class Callable>
-        static int safe_sqlite_call(Callable&& callable)
-        {
-            try
-            {
-                return callable();
-            }
-            catch (const std::exception& e)
-            {
-                // TODO: add debug logging.
-                return SQLITE_IOERR;
-            }
-        }
     };
 
-    // struct sqlite3_io_methods {
-    //   int iVersion;
-    //   int (*xClose)(sqlite3_file*);
-    //   int (*xRead)(sqlite3_file*, void*, int iAmt, sqlite3_int64 iOfst);
-    //   int (*xWrite)(sqlite3_file*, const void*, int iAmt, sqlite3_int64 iOfst);
-    //   int (*xTruncate)(sqlite3_file*, sqlite3_int64 size);
-    //   int (*xSync)(sqlite3_file*, int flags);
-    //   int (*xFileSize)(sqlite3_file*, sqlite3_int64 *pSize);
-    //   int (*xLock)(sqlite3_file*, int);
-    //   int (*xUnlock)(sqlite3_file*, int);
-    //   int (*xCheckReservedLock)(sqlite3_file*, int *pResOut);
-    //   int (*xFileControl)(sqlite3_file*, int op, void *pArg);
-    //   int (*xSectorSize)(sqlite3_file*);
-    //   int (*xDeviceCharacteristics)(sqlite3_file*);
-    //   /* Methods above are valid for version 1 */
-    //   int (*xShmMap)(sqlite3_file*, int iPg, int pgsz, int, void volatile**);
-    //   int (*xShmLock)(sqlite3_file*, int offset, int n, int flags);
-    //   void (*xShmBarrier)(sqlite3_file*);
-    //   int (*xShmUnmap)(sqlite3_file*, int deleteFlag);
-    //   /* Methods above are valid for version 2 */
-    //   int (*xFetch)(sqlite3_file*, sqlite3_int64 iOfst, int iAmt, void **pp);
-    //   int (*xUnfetch)(sqlite3_file*, sqlite3_int64 iOfst, void *p);
-    //   /* Methods above are valid for version 3 */
-    //   /* Additional methods may be added in future releases */
+    // struct sqlite3_vfs {
+    //   int iVersion;            /* Structure version number (currently 3) */
+    //   int szOsFile;            /* Size of subclassed sqlite3_file */
+    //   int mxPathname;          /* Maximum file pathname length */
+    //   sqlite3_vfs *pNext;      /* Next registered VFS */
+    //   const char *zName;       /* Name of this virtual file system */
+    //   void *pAppData;          /* Pointer to application-specific data */
+    //   int (*xOpen)(sqlite3_vfs*, sqlite3_filename zName, sqlite3_file*,
+    //                int flags, int *pOutFlags);
+    //   int (*xDelete)(sqlite3_vfs*, const char *zName, int syncDir);
+    //   int (*xAccess)(sqlite3_vfs*, const char *zName, int flags, int *pResOut);
+    //   int (*xFullPathname)(sqlite3_vfs*, const char *zName, int nOut, char *zOut);
+    //   void *(*xDlOpen)(sqlite3_vfs*, const char *zFilename);
+    //   void (*xDlError)(sqlite3_vfs*, int nByte, char *zErrMsg);
+    //   void (*(*xDlSym)(sqlite3_vfs*,void*, const char *zSymbol))(void);
+    //   void (*xDlClose)(sqlite3_vfs*, void*);
+    //   int (*xRandomness)(sqlite3_vfs*, int nByte, char *zOut);
+    //   int (*xSleep)(sqlite3_vfs*, int microseconds);
+    //   int (*xCurrentTime)(sqlite3_vfs*, double*);
+    //   int (*xGetLastError)(sqlite3_vfs*, int, char *);
+    //   /*
+    //   ** The methods above are in version 1 of the sqlite_vfs object
+    //   ** definition.  Those that follow are added in version 2 or later
+    //   */
+    //   int (*xCurrentTimeInt64)(sqlite3_vfs*, sqlite3_int64*);
+    //   /*
+    //   ** The methods above are in versions 1 and 2 of the sqlite_vfs object.
+    //   ** Those below are for version 3 and greater.
+    //   */
+    //   int (*xSetSystemCall)(sqlite3_vfs*, const char *zName, sqlite3_syscall_ptr);
+    //   sqlite3_syscall_ptr (*xGetSystemCall)(sqlite3_vfs*, const char *zName);
+    //   const char *(*xNextSystemCall)(sqlite3_vfs*, const char *zName);
+    //   /*
+    //   ** The methods above are in versions 1 through 3 of the sqlite_vfs object.
+    //   ** New fields may be appended in future versions.  The iVersion
+    //   ** value will increment whenever this happens.
+    //   */
     // };
-
 }    // namespace
 
+EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params params,
+                                                       const char* base_vfs_name)
+{
+    std::array<unsigned char, 16> buffer;
+    generate_random(absl::MakeSpan(buffer));
+    vfs_name_ = "securefs-" + hexify(buffer);
+
+    data_.reset(new EncryptedVfsAppData());
+    data_->vfs = sqlite3_vfs_find(base_vfs_name);
+    if (!data_->vfs)
+    {
+        throw std::invalid_argument(
+            fmt::format(FMT_COMPILE("No registered sqlite3 vfs with name {}"), base_vfs_name));
+    }
+
+    memset(&vfs_, 0, sizeof(vfs_));
+    vfs_.iVersion = 2;
+    vfs_.pAppData = data_.get();
+    vfs_.mxPathname = data_->vfs->mxPathname;
+    vfs_.szOsFile = sizeof(EncryptedSqliteFile);
+    vfs_.zName = vfs_name_.c_str();
+    vfs_.xOpen = [](sqlite3_vfs* vfs,
+                    sqlite3_filename zName,
+                    sqlite3_file* outfile,
+                    int flags,
+                    int* pOutFlags)
+    {
+        return safe_sqlite_call(
+            [=]()
+            {
+                memset(outfile, 0, sizeof(EncryptedSqliteFile));
+                static const EncryptedSqliteFileMethods file_methods;
+                outfile->pMethods = &file_methods.io_methods;
+
+                auto data = get_data(vfs);
+                C_unique_ptr<sqlite3_file> underlying_sqlite_file(
+                    static_cast<sqlite3_file*>(malloc(data->vfs->szOsFile)));
+                if (!underlying_sqlite_file)
+                {
+                    return SQLITE_NOMEM;
+                }
+                int rc = data->vfs->xOpen(
+                    data->vfs, zName, underlying_sqlite_file.get(), flags, pOutFlags);
+                if (rc != SQLITE_OK)
+                {
+                    return rc;
+                }
+                static_cast<EncryptedSqliteFile*>(outfile)->impl
+                    = new EncryptedSqliteFileImpl(std::move(underlying_sqlite_file), data->params);
+                return SQLITE_OK;
+            });
+    };
+}
 }    // namespace securefs

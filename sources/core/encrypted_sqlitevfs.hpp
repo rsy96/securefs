@@ -26,10 +26,28 @@ class EncryptedSqliteVfsRegistry
 {
 private:
     std::string vfs_name_;
+    sqlite3_vfs vfs_;
+
+    struct EncryptedVfsAppData
+    {
+        AesGcmRandomIO::Params params;
+        sqlite3_vfs* vfs = nullptr;
+    };
+
+    std::unique_ptr<EncryptedVfsAppData> data_;
+
+    static EncryptedVfsAppData* get_data(sqlite3_vfs* vfs)
+    {
+        return static_cast<EncryptedVfsAppData*>(vfs->pAppData);
+    }
 
 public:
-    explicit EncryptedSqliteVfsRegistry(ConstByteBuffer key);
+    explicit EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params params,
+                                        const char* base_vfs_name = nullptr);
     ~EncryptedSqliteVfsRegistry();
+
+    EncryptedSqliteVfsRegistry(const EncryptedSqliteVfsRegistry&) = delete;
+    EncryptedSqliteVfsRegistry& operator=(const EncryptedSqliteVfsRegistry&) = delete;
 
     const std::string& vfs_name() const { return vfs_name_; }
 };
