@@ -1,6 +1,7 @@
 #include "core/crypto_io.hpp"
 #include "core/encrypted_sqlitevfs.hpp"
 #include "core/rng.hpp"
+#include "core/utilities.hpp"
 
 #include "memory_io.hpp"
 
@@ -19,12 +20,7 @@ struct StringMaker<std::vector<unsigned char>>
 {
     static String convert(const std::vector<unsigned char>& value)
     {
-        std::string s;
-        s.reserve(value.size() * 2);
-        for (auto c : value)
-        {
-            s += fmt::format("{:02x}", c);
-        }
+        std::string s = securefs::hexify(absl::MakeConstSpan(value));
         return doctest::String(s.data(), s.size());
     }
 };
