@@ -7,6 +7,7 @@
 #include <fmt/compile.h>
 #include <fmt/format.h>
 
+#include "encrypted_sqlitevfs.hpp"
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -441,5 +442,80 @@ EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params pa
                 return SQLITE_OK;
             });
     };
+
+    vfs_.xRandomness = [](sqlite3_vfs*, int nByte, char* zOut)
+    {
+        if (nByte < 0)
+        {
+            return SQLITE_MISUSE;
+        }
+        generate_random(zOut, static_cast<size_t>(nByte));
+        return SQLITE_OK;
+    };
+
+    vfs_.xDelete = [](sqlite3_vfs* vfs, const char* zName, int syncDir)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xDelete(data->vfs, zName, syncDir);
+    };
+
+    vfs_.xAccess = [](sqlite3_vfs* vfs, const char* zName, int flags, int* pResOut)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xAccess(data->vfs, zName, flags, pResOut);
+    };
+
+    vfs_.xFullPathname = [](sqlite3_vfs* vfs, const char* zName, int nOut, char* zOut)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xFullPathname(data->vfs, zName, nOut, zOut);
+    };
+
+    vfs_.xDlOpen = [](sqlite3_vfs* vfs, const char* zFilename)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xDlOpen(data->vfs, zFilename);
+    };
+
+    vfs_.xDlError = [](sqlite3_vfs* vfs, int nByte, char* zErrMsg)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xDlError(data->vfs, nByte, zErrMsg);
+    };
+
+    vfs_.xDlClose = [](sqlite3_vfs* vfs, void* handle)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xDlClose(data->vfs, handle);
+    };
+
+    vfs_.xDlSym = [](sqlite3_vfs* vfs, void* handle, const char* zSymbol)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xDlSym(data->vfs, handle, zSymbol);
+    };
+
+    vfs_.xSleep = [](sqlite3_vfs* vfs, int microseconds)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xSleep(data->vfs, microseconds);
+    };
+
+    vfs_.xCurrentTime = [](sqlite3_vfs* vfs, double* outTime)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xCurrentTime(data->vfs, outTime);
+    };
+
+    vfs_.xCurrentTimeInt64 = [](sqlite3_vfs* vfs, sqlite3_int64* outTime)
+    {
+        auto data = get_data(vfs);
+        return data->vfs->xCurrentTimeInt64(data->vfs, outTime);
+    };
+
+    check_sqlite_call(sqlite3_vfs_register(&vfs_, 0));
 }
+
+EncryptedSqliteVfsRegistry::~EncryptedSqliteVfsRegistry() { sqlite3_vfs_unregister(&vfs_); }
+
 }    // namespace securefs
