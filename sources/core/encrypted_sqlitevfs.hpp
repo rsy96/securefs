@@ -3,6 +3,8 @@
 #include "core/crypto_io.hpp"
 #include "core/io.hpp"
 
+#include "params.pb.h"
+
 #include <sqlite3.h>
 
 #include <string>
@@ -31,7 +33,7 @@ private:
 
     struct EncryptedVfsAppData
     {
-        AesGcmRandomIO::Params params;
+        EncryptedVfsParams params;
         sqlite3_vfs* vfs = nullptr;
     };
 
@@ -43,7 +45,7 @@ private:
     }
 
 public:
-    explicit EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params params,
+    explicit EncryptedSqliteVfsRegistry(EncryptedVfsParams params,
                                         const char* base_vfs_name = nullptr);
     ~EncryptedSqliteVfsRegistry();
 

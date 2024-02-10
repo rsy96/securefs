@@ -22,20 +22,31 @@ static inline Number subtract_if_greater(Number x, Number y)
     return x >= y ? x - y : 0;
 }
 
-static bool is_all_zeros(ConstByteBuffer buffer)
+template <typename T>
+static bool is_all_zeros(absl::Span<T> buffer)
 {
     return std::all_of(buffer.begin(), buffer.end(), [](auto c) { return c == 0; });
 }
 
-AesGcmRandomIO::AesGcmRandomIO(std::shared_ptr<RandomIO> delegate, Params params)
+AesGcmRandomIO::AesGcmRandomIO(std::shared_ptr<RandomIO> delegate, EncryptionParams params)
     : delegate_(std::move(delegate)), params_(std::move(params))
 {
-    if (params_.underlying_block_size <= OVERHEAD)
+    if (params_.underlying_block_size() <= OVERHEAD)
     {
         throw std::invalid_argument("Too small block size");
     }
-    encryptor_.SetKeyWithIV(params_.key.data(), params_.key.size(), NULL_IV, sizeof(NULL_IV));
-    decryptor_.SetKeyWithIV(params_.key.data(), params_.key.size(), NULL_IV, sizeof(NULL_IV));
+    if (params_.key().empty() || is_all_zeros(absl::MakeConstSpan(params_.key())))
+    {
+        throw std::invalid_argument("Empty or zero encryption key");
+    }
+    encryptor_.SetKeyWithIV(reinterpret_cast<const unsigned char*>(params_.key().data()),
+                            params_.key().size(),
+                            NULL_IV,
+                            sizeof(NULL_IV));
+    decryptor_.SetKeyWithIV(reinterpret_cast<const unsigned char*>(params_.key().data()),
+                            params_.key().size(),
+                            NULL_IV,
+                            sizeof(NULL_IV));
 }
 
 SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)

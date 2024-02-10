@@ -5,6 +5,7 @@ fmt/10.2.1
 doctest/2.4.11
 sqlite3/3.45.0
 sqlitecpp/3.3.1
+protobuf/3.21.12
 
 [generators]
 CMakeDeps
@@ -15,3 +16,4 @@ cmake_layout
 
 [options]
 sqlite3/*:build_executable=False
+protobuf/*:with_zlib=False

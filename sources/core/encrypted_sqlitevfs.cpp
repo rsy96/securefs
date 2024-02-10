@@ -89,14 +89,15 @@ namespace
     private:
         C_unique_ptr<sqlite3_file> delegate_;
         std::unique_ptr<AesGcmRandomIO> io_;
+        bool read_only_;
 
     public:
         explicit EncryptedSqliteFileImpl(C_unique_ptr<sqlite3_file> delegate,
-                                         AesGcmRandomIO::Params params)
-            : delegate_(std::move(delegate))
+                                         EncryptedVfsParams params)
+            : delegate_(std::move(delegate)), read_only_(params.read_only())
         {
             io_ = std::make_unique<AesGcmRandomIO>(std::make_shared<SqliteFileIO>(delegate_.get()),
-                                                   std::move(params));
+                                                   std::move(*params.mutable_encryption_params()));
         }
         ~EncryptedSqliteFileImpl() {}
 
@@ -177,7 +178,21 @@ namespace
 
         int xSectorSize() noexcept { return static_cast<int>(io_->virtual_block_size()); }
 
-        int xDeviceCharacteristics() noexcept { return 0; }
+        int xDeviceCharacteristics() noexcept
+        {
+            int flags =
+#ifdef _WIN32
+                SQLITE_IOCAP_UNDELETABLE_WHEN_OPEN
+#else
+                0
+#endif
+                ;
+            if (read_only_)
+            {
+                flags |= SQLITE_IOCAP_IMMUTABLE;
+            }
+            return flags;
+        }
 
     private:
     };
@@ -404,7 +419,7 @@ namespace
     // };
 }    // namespace
 
-EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(AesGcmRandomIO::Params params,
+EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(EncryptedVfsParams params,
                                                        const char* base_vfs_name)
 {
     vfs_name_ = "securefs-" + random_hex_string(8);

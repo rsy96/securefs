@@ -97,9 +97,10 @@ TEST_CASE("crypto io against memory io")
 {
     for (int i = 0; i < 100; ++i)
     {
-        AesGcmRandomIO::Params params;
-        generate_random(params.key.data(), params.key.size());
-        params.underlying_block_size = 64;
+        EncryptionParams params;
+        params.mutable_key()->resize(32);
+        generate_random(params.mutable_key()->data(), params.mutable_key()->size());
+        params.set_underlying_block_size(64);
 
         MemoryRandomIO reference_io;
         AesGcmRandomIO tested_io(std::make_shared<MemoryRandomIO>(), params);
