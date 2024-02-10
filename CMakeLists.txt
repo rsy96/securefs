@@ -42,7 +42,10 @@ target_link_libraries(
     securefs-core
     PUBLIC Threads::Threads
            cryptopp::cryptopp
-           abseil::abseil
+           absl::base
+           absl::endian
+           absl::cleanup
+           absl::span
            protobuf::libprotobuf
            fmt::fmt
            SQLite::SQLite3
