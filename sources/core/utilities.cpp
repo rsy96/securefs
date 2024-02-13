@@ -1,8 +1,7 @@
 #include "core/rng.hpp"
 #include "core/utilities.hpp"
 
-#include <fmt/compile.h>
-#include <fmt/format.h>
+#include <absl/strings/str_format.h>
 
 #include <vector>
 
@@ -14,7 +13,7 @@ std::string hexify(absl::Span<const unsigned char> buffer)
     s.reserve(buffer.size() * 2);
     for (auto c : buffer)
     {
-        s.append(fmt::format(FMT_COMPILE("{:02x}"), c));
+        absl::StrAppendFormat(&s, "%02x", static_cast<unsigned>(c));
     }
     return s;
 }

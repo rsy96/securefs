@@ -2,7 +2,7 @@
 #include "core/rng.hpp"
 
 #include <absl/base/internal/endian.h>
-#include <fmt/format.h>
+#include <absl/strings/str_format.h>
 
 #include <algorithm>
 
@@ -94,7 +94,7 @@ SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
         if (!success)
         {
             throw CryptoVerificationException(
-                fmt::format("File block {} failed verification", i + start_block));
+                absl::StrFormat("File block %v failed verification", i + start_block));
         }
     }
     if (start_residue > plaintext.size())

@@ -4,8 +4,7 @@
 #include "core/utilities.hpp"
 
 #include <SQLiteCpp/Exception.h>
-#include <fmt/compile.h>
-#include <fmt/format.h>
+#include <absl/strings/str_format.h>
 
 #include "encrypted_sqlitevfs.hpp"
 #include <limits>
@@ -430,7 +429,7 @@ EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(EncryptedVfsParams params
     if (!data_->vfs)
     {
         throw std::invalid_argument(
-            fmt::format(FMT_COMPILE("No registered sqlite3 vfs with name {}"), base_vfs_name));
+            absl::StrFormat("No registered sqlite3 vfs with name %s", base_vfs_name));
     }
 
     memset(&vfs_, 0, sizeof(vfs_));

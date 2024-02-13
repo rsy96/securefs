@@ -32,7 +32,6 @@ target_include_directories(securefs-core PUBLIC sources)
 find_package(Threads)
 find_package(cryptopp)
 find_package(absl)
-find_package(fmt)
 find_package(doctest)
 find_package(SQLite3)
 find_package(SQLiteCpp)
@@ -46,8 +45,9 @@ target_link_libraries(
            absl::endian
            absl::cleanup
            absl::span
+           absl::str_format
+           absl::strings
            protobuf::libprotobuf
-           fmt::fmt
            SQLite::SQLite3
            SQLiteCpp)
 protobuf_generate(TARGET securefs-core IMPORT_DIRS sources/protos
@@ -126,8 +126,4 @@ if(0)
                 ${CMAKE_COMMAND} -E env SECUREFS_BINARY=$<TARGET_FILE:securefs>
                 ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/test/simple_test.py)
     endif()
-endif()
-
-if(MINGW)
-    target_link_libraries(securefs PRIVATE -municode)
 endif()

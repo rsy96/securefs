@@ -7,7 +7,6 @@
 
 #include <absl/cleanup/cleanup.h>
 #include <doctest/doctest.h>
-#include <fmt/format.h>
 
 #include <array>
 #include <random>
