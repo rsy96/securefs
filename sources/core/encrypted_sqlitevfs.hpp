@@ -2,8 +2,7 @@
 
 #include "core/crypto_io.hpp"
 #include "core/io.hpp"
-
-#include "params.pb.h"
+#include "protos/params.pb.h"
 
 #include <sqlite3.h>
 

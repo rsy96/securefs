@@ -51,9 +51,8 @@ target_link_libraries(
            SQLite::SQLite3
            SQLiteCpp)
 protobuf_generate(TARGET securefs-core IMPORT_DIRS sources/protos
-                  PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/protos)
-target_include_directories(securefs-core
-                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/protos)
+                  PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/out/protos)
+target_include_directories(securefs-core PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out)
 
 file(GLOB TEST_CORE_SOURCES test/core/*.hpp test/core/*.cpp test/test_main.cpp)
 add_executable(securefs-test ${TEST_CORE_SOURCES})

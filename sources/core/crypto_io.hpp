@@ -1,7 +1,6 @@
 #pragma once
 #include "core/io.hpp"
-
-#include "params.pb.h"
+#include "protos/params.pb.h"
 
 #include <cryptopp/aes.h>
 #include <cryptopp/gcm.h>
