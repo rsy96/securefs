@@ -6,7 +6,6 @@
 #include <SQLiteCpp/Exception.h>
 #include <absl/strings/str_format.h>
 
-#include "encrypted_sqlitevfs.hpp"
 #include <limits>
 #include <memory>
 #include <stdexcept>
