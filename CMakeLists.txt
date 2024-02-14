@@ -24,8 +24,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 endif()
 
-file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp
-     sources/protos/*.proto)
+file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp protos/*.proto)
 add_library(securefs-core STATIC ${CORE_SOURCES})
 target_include_directories(securefs-core PUBLIC sources)
 
@@ -35,7 +34,7 @@ find_package(absl)
 find_package(doctest)
 find_package(SQLite3)
 find_package(SQLiteCpp)
-find_package(protobuf CONFIG REQUIRED)
+find_package(Protobuf)
 
 target_link_libraries(
     securefs-core
@@ -50,9 +49,10 @@ target_link_libraries(
            protobuf::libprotobuf
            SQLite::SQLite3
            SQLiteCpp)
-protobuf_generate(TARGET securefs-core IMPORT_DIRS sources/protos
-                  PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/out/protos)
-target_include_directories(securefs-core PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out)
+protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
+                  ${CMAKE_CURRENT_BINARY_DIR}/out/)
+target_include_directories(securefs-core
+                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out/)
 
 file(GLOB TEST_CORE_SOURCES test/core/*.hpp test/core/*.cpp test/test_main.cpp)
 add_executable(securefs-test ${TEST_CORE_SOURCES})

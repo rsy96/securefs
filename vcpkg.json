@@ -1,0 +1,17 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "securefs",
+    "dependencies": [
+        "sqlite3",
+        "sqlitecpp",
+        "cryptopp",
+        {
+            "name": "abseil",
+            "features": [
+                "cxx17"
+            ]
+        },
+        "protobuf",
+        "doctest"
+    ]
+}

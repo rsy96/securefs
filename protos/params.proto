@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package securefs;
+
+message EncryptionParams
+{
+    bytes key = 1;
+    uint64 underlying_block_size = 2;
+    bool only_warn_on_verification_error = 3;
+}
+
+message EncryptedVfsParams
+{
+    EncryptionParams encryption_params = 1;
+    bool read_only = 2;
+}
+
+message FileSystemInherentParams
+{
+    bool exact_name_only = 1;
+    uint64 underlying_block_size = 2;
+}
+
+message FileSystemMountParams
+{
+    enum NameLookupMode {
+        NAME_LOOKUP_UNSPECIFIED = 0;
+        NAME_LOOKUP_EXACT = 1;
+        NAME_LOOKUP_CASE_INSENSITVE = 2;
+        NAME_LOOKUP_UNICODE_NORMED = 3;
+    }
+    NameLookupMode name_lookup_mode = 1;
+}

@@ -124,7 +124,8 @@ TEST_CASE("sqlite io against memory io")
         REQUIRE(vfs->xOpen(vfs,
                            filename.c_str(),
                            file,
-                           SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                           SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
+                               | SQLITE_OPEN_TEMP_DB,
                            nullptr)
                 == SQLITE_OK);
 
