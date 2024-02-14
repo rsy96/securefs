@@ -1,6 +1,8 @@
 #include "core/crypto_io.hpp"
 #include "core/encrypted_sqlitevfs.hpp"
+#include "core/exceptions.hpp"
 #include "core/rng.hpp"
+#include "core/sys_io.hpp"
 #include "core/utilities.hpp"
 
 #include "memory_io.hpp"
@@ -128,6 +130,27 @@ TEST_CASE("sqlite io against memory io")
 
         SqliteFileIO file_io(file);
         validate(referece_io, file_io);
+    }
+}
+
+TEST_CASE("System IO against memory IO")
+{
+    for (int i = 0; i < 100; ++i)
+    {
+        auto filename = random_hex_string(8) + ".bin";
+        auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
+        MemoryRandomIO referece_io;
+
+        HANDLE h = CHECK_WINAPI_CALL(CreateFileA(filename.c_str(),
+                                                 GENERIC_READ | GENERIC_WRITE,
+                                                 0,
+                                                 nullptr,
+                                                 CREATE_ALWAYS,
+                                                 FILE_ATTRIBUTE_NORMAL,
+                                                 nullptr),
+                                     INVALID_HANDLE_VALUE);
+        SystemFileIO sio(h);
+        validate(referece_io, sio);
     }
 }
 }    // namespace securefs

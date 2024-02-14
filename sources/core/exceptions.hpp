@@ -59,6 +59,31 @@ public:
     virtual std::string message() const override;
     DWORD code() const noexcept { return code_; }
 };
+
+// We define this macro because we need to ensure that ::GetLastError is evaluated first.
+#define THROW_WINDOWS_EXCEPTION(msg)                                                               \
+    do                                                                                             \
+    {                                                                                              \
+        DWORD code = ::GetLastError();                                                             \
+        throw WindowsException(code, msg);                                                         \
+    } while (0)
+
+namespace internal
+{
+    template <typename Ret>
+    inline Ret check_winapi_call(Ret result, Ret invalid_value, const char* expr)
+    {
+        if (result == invalid_value)
+        {
+            THROW_WINDOWS_EXCEPTION(expr);
+        }
+        return result;
+    }
+}    // namespace internal
+
+#define CHECK_WINAPI_CALL(expr, invalid_value)                                                     \
+    ::securefs::internal::check_winapi_call((expr), invalid_value, #expr);
+
 #endif
 
 }    // namespace securefs
