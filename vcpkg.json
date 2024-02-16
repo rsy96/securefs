@@ -12,6 +12,7 @@
             ]
         },
         "protobuf",
-        "doctest"
+        "doctest",
+        "utf8proc"
     ]
 }
