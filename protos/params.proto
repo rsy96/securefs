@@ -31,3 +31,10 @@ message FileSystemMountParams
     }
     NameLookupMode name_lookup_mode = 1;
 }
+
+enum FileType {
+    FILE_TYPE_UNSPECIFED = 0;
+    FILE_TYPE_REGULAR = 1;
+    FILE_TYPE_DIR = 2;
+    FILE_TYPE_SYMLINK = 3;
+}

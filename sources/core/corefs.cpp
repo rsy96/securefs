@@ -1,6 +1,7 @@
 #include "core/corefs.hpp"
 
 #include <SQLiteCpp/Exception.h>
+#include <absl/strings/str_split.h>
 #include <sqlite3.h>
 #include <utf8proc.h>
 
@@ -110,10 +111,18 @@ void CoreFileSystem::initialize_tables()
 
 void CoreFileSystem::register_custom_functions()
 {
+    absl::MutexLock guard(&mutex());
     register_utf8proc_map(db_.getHandle(), "CASEFOLD", UTF8PROC_CASEFOLD, false);
     register_utf8proc_map(db_.getHandle(), "UNINORM", UTF8PROC_COMPOSE, false);
     register_utf8proc_map(db_.getHandle(), "CASEFOLD_IF_CHANGED", UTF8PROC_CASEFOLD, true);
     register_utf8proc_map(db_.getHandle(), "UNINORM_IF_CHANGED", UTF8PROC_COMPOSE, true);
+}
+
+CoreFileSystem::LookupResult CoreFileSystem::lookup(std::string_view name)
+{
+    CoreFileSystem::LookupResult result;
+
+    return result;
 }
 
 }    // namespace securefs

@@ -47,6 +47,7 @@ target_link_libraries(
            absl::span
            absl::str_format
            absl::strings
+           absl::synchronization
            protobuf::libprotobuf
            SQLite::SQLite3
            SQLiteCpp

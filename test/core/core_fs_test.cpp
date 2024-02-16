@@ -31,6 +31,9 @@ namespace
             SQLite::Database(filename, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE, 200),
             inherent_params,
             mount_params);
+
+        absl::MutexLock lock_guard(&cfs.mutex());
+        REQUIRE(cfs.lookup("/a/b/c").file_id.has_value());
     }
 }    // namespace
 
