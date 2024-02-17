@@ -1,4 +1,5 @@
 #include "core/corefs.hpp"
+#include "core/rng.hpp"
 
 #include "corefs.hpp"
 #include <SQLiteCpp/Exception.h>
@@ -100,6 +101,7 @@ CoreFileSystem::CoreFileSystem(SQLite::Database db,
                                const FileSystemMountParams& mount_params)
     : db_(std::move(db))
     , lookup_st_(db_, get_lookup_sql(mount_params.name_lookup_mode()))
+    , create_st_(db_, get_create_sql())
     , inherent_params_(inherent_params)
     , mount_params_(mount_params)
 {
@@ -187,6 +189,13 @@ const char* CoreFileSystem::get_lookup_sql(FileSystemMountParams::NameLookupMode
     }
 }
 
+const char* CoreFileSystem::get_create_sql()
+{
+    return R"(
+            insert into DirEntries (ParentId, Name, FileId, FileType, LinkCount)
+                values (?, ?, ?, ?, 1);
+        )";
+}
 CoreFileSystem::LookupResult CoreFileSystem::lookup(std::string_view name)
 {
     CoreFileSystem::LookupResult result;
@@ -218,7 +227,7 @@ CoreFileSystem::LookupResult CoreFileSystem::lookup(std::string_view name)
     for (size_t i = 0; i < components.size(); ++i)
     {
         auto cleanup = absl::MakeCleanup(
-            [&]() ABSL_NO_THREAD_SAFETY_ANALYSIS
+            [&]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_)
             {
                 lookup_st_.reset();
                 lookup_st_.clearBindings();
@@ -259,6 +268,33 @@ CoreFileSystem::LookupResult CoreFileSystem::lookup(std::string_view name)
     auto last_sep_index = name.rfind(kPathSep);
     result.last_component_name.assign(name.substr(last_sep_index + 1));
     return result;
+}
+
+void CoreFileSystem::create(const FileId& parent_id,
+                            std::string_view component_name,
+                            FileType file_type,
+                            FileId& file_id_output)
+{
+    generate_random(file_id_output.data(), file_id_output.size());
+    auto cleanup = absl::MakeCleanup(
+        [&]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_)
+        {
+            create_st_.reset();
+            create_st_.clearBindings();
+        });
+    create_st_.bindNoCopy(1, parent_id.data(), parent_id.size());
+    create_st_.bindNoCopy(2, component_name.data(), component_name.size());
+    create_st_.bindNoCopy(3, file_id_output.data(), file_id_output.size());
+    create_st_.bind(4, static_cast<int>(file_type));
+    if (create_st_.exec() != 1)
+    {
+        throw std::runtime_error("Failed to insert an row");
+    }
+}
+
+CoreTransaction::CoreTransaction(CoreFileSystem& cfs)
+    : Transaction(cfs.db_, SQLite::TransactionBehavior::EXCLUSIVE)
+{
 }
 
 const char* NameLookupException::what() const noexcept

@@ -17,6 +17,8 @@
 namespace securefs
 {
 
+class CoreTransaction;
+
 class CoreFileSystem
 {
 public:
@@ -26,10 +28,6 @@ public:
 
     void initialize_tables() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-    SQLite::Transaction transaction() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_)
-    {
-        return SQLite::Transaction(db_);
-    }
     absl::Mutex& mutex() noexcept ABSL_LOCK_RETURNED(mu_) { return mu_; }
 
     using FileId = std::array<unsigned char, 32>;
@@ -44,12 +42,16 @@ public:
     };
 
     LookupResult lookup(std::string_view name) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-    void create(const LookupResult& item) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+    void create(const FileId& parent_id,
+                std::string_view component_name,
+                FileType file_type,
+                FileId& file_id_output) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
 private:
     absl::Mutex mu_;
     SQLite::Database db_ ABSL_GUARDED_BY(mu_);
     SQLite::Statement lookup_st_ ABSL_GUARDED_BY(mu_);
+    SQLite::Statement create_st_ ABSL_GUARDED_BY(mu_);
     FileSystemInherentParams inherent_params_;
     FileSystemMountParams mount_params_;
 
@@ -59,6 +61,17 @@ private:
     throw_unsupported_name_lookup_mode(FileSystemMountParams::NameLookupMode mode);
 
     static const char* get_lookup_sql(FileSystemMountParams::NameLookupMode mode);
+    static const char* get_create_sql();
+
+    friend class CoreTransaction;
+};
+
+class CoreTransaction : public SQLite::Transaction
+{
+public:
+    explicit CoreTransaction(CoreFileSystem& cfs) ABSL_EXCLUSIVE_LOCKS_REQUIRED(cfs.mu_);
+    CoreTransaction(CoreTransaction&&) = delete;
+    CoreTransaction& operator=(CoreTransaction&&) = delete;
 };
 
 class NameLookupException : public std::exception
