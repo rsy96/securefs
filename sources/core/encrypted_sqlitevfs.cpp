@@ -1,9 +1,9 @@
-#include "core/crypto_io.hpp"
 #include "core/encrypted_sqlitevfs.hpp"
+#include "core/crypto_io.hpp"
 #include "core/rng.hpp"
+#include "core/sqlitehelper.hpp"
 #include "core/utilities.hpp"
 
-#include <SQLiteCpp/Exception.h>
 #include <absl/strings/str_format.h>
 
 #include <limits>
@@ -16,14 +16,14 @@ static void check_sqlite_call(int rc)
 {
     if (rc != SQLITE_OK)
     {
-        throw SQLite::Exception(sqlite3_errstr(rc), rc);
+        throw SQLiteException(rc);
     }
 }
 SqliteFileIO::SqliteFileIO(sqlite3_file* file) : file_(file)
 {
     if (!file)
     {
-        throw std::invalid_argument("Null sqlite3_file");
+        throw SQLiteException(SQLITE_MISUSE);
     }
 }
 
