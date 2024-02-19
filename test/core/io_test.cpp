@@ -14,6 +14,10 @@
 #include <random>
 #include <vector>
 
+#ifndef _WIN32
+#include <fcntl.h>
+#endif
+
 namespace doctest
 {
 template <>
@@ -142,6 +146,7 @@ TEST_CASE("System IO against memory IO")
         auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
         MemoryRandomIO referece_io;
 
+#ifdef _WIN32
         HANDLE h = CHECK_WINAPI_CALL(CreateFileA(filename.c_str(),
                                                  GENERIC_READ | GENERIC_WRITE,
                                                  0,
@@ -150,6 +155,9 @@ TEST_CASE("System IO against memory IO")
                                                  FILE_ATTRIBUTE_NORMAL,
                                                  nullptr),
                                      INVALID_HANDLE_VALUE);
+#else
+        int h = CHECK_POSIX_CALL(open(filename.c_str(), O_RDWR | O_CREAT | O_EXCL, 0644), -1);
+#endif
         SystemFileIO sio(h);
         validate(referece_io, sio);
     }

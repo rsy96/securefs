@@ -1,6 +1,6 @@
 #pragma once
-#include <exception>
-#include <string>
+#include <stdexcept>
+#include <string_view>
 #include <typeinfo>
 
 #ifdef _WIN32
@@ -18,45 +18,24 @@
 
 namespace securefs
 {
-class BaseException : public std::exception
-{
-public:
-    const char* what() const noexcept override;
-
-    virtual std::string message() const = 0;
-
-private:
-    mutable std::string cached_msg_;
-};
-
 #ifdef _WIN32
-class NtException : public BaseException
+class NtException : public std::runtime_error
 {
 private:
     NTSTATUS code_;
-    std::string user_msg_;
 
 public:
-    explicit NtException(NTSTATUS code, std::string user_msg)
-        : code_(code), user_msg_(std::move(user_msg))
-    {
-    }
-    virtual std::string message() const override;
+    explicit NtException(NTSTATUS code, std::string_view user_msg);
     NTSTATUS code() const noexcept { return code_; }
 };
 
-class WindowsException : public BaseException
+class WindowsException : public std::runtime_error
 {
 private:
     DWORD code_;
-    std::string user_msg_;
 
 public:
-    explicit WindowsException(DWORD code, std::string user_msg)
-        : code_(code), user_msg_(std::move(user_msg))
-    {
-    }
-    virtual std::string message() const override;
+    explicit WindowsException(DWORD code, std::string_view user_msg);
     DWORD code() const noexcept { return code_; }
 };
 
@@ -71,7 +50,7 @@ public:
 namespace internal
 {
     template <typename Ret>
-    inline Ret check_winapi_call(Ret result, Ret invalid_value, const char* expr)
+    inline Ret check_winapi_call(Ret result, Ret invalid_value, std::string_view expr)
     {
         if (result == invalid_value)
         {
@@ -85,5 +64,39 @@ namespace internal
     ::securefs::internal::check_winapi_call((expr), invalid_value, #expr);
 
 #endif
+
+class PosixException : public std::runtime_error
+{
+private:
+    int code_;
+
+public:
+    explicit PosixException(int code, std::string_view user_msg);
+    int code() const noexcept { return code_; }
+};
+
+// We define this macro because we need to ensure that errno (a macro) is evaluated first.
+#define THROW_POSIX_EXCEPTION(msg)                                                                 \
+    do                                                                                             \
+    {                                                                                              \
+        int code = errno;                                                                          \
+        throw PosixException(code, msg);                                                           \
+    } while (0)
+
+namespace internal
+{
+    template <typename Ret>
+    inline Ret check_posix_call(Ret result, Ret invalid_value, std::string_view expr)
+    {
+        if (result == invalid_value)
+        {
+            THROW_POSIX_EXCEPTION(expr);
+        }
+        return result;
+    }
+}    // namespace internal
+
+#define CHECK_POSIX_CALL(expr, invalid_value)                                                      \
+    ::securefs::internal::check_posix_call((expr), invalid_value, #expr);
 
 }    // namespace securefs

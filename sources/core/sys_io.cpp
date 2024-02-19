@@ -3,6 +3,12 @@
 
 #include <limits>
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace securefs
 {
 
@@ -65,6 +71,34 @@ void SystemFileIO::resize(SizeType new_size)
 }
 
 #else
+SystemFileIO::~SystemFileIO() { close(handle_); }
 
+SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)
+{
+    return CHECK_POSIX_CALL(::pread(handle_, output.data(), output.size(), offset),
+                            static_cast<ssize_t>(-1));
+}
+
+void SystemFileIO::write(OffsetType offset, ConstByteBuffer input)
+{
+    auto size = CHECK_POSIX_CALL(::pwrite(handle_, input.data(), input.size(), offset),
+                                 static_cast<ssize_t>(-1));
+    if (size != input.size())
+    {
+        throw PosixException(EIO, "Fail to write sufficient bytes");
+    }
+}
+
+SizeType SystemFileIO::size() const
+{
+    struct stat st;
+    CHECK_POSIX_CALL(::fstat(handle_, &st), -1);
+    return st.st_size;
+}
+
+void SystemFileIO::resize(SizeType new_size)
+{
+    CHECK_POSIX_CALL(::ftruncate(handle_, new_size), -1);
+}
 #endif
 }    // namespace securefs

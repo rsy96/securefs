@@ -4,25 +4,10 @@
 
 namespace securefs
 {
-const char* securefs::BaseException::what() const noexcept
-{
-    try
-    {
-        message().swap(cached_msg_);
-    }
-    catch (...)
-    {
-        return typeid(*this).name();
-    }
-    return cached_msg_.c_str();
-}
 
-std::string NtException::message() const
-{
-    return absl::StrFormat("NT error %d: %s", code_, user_msg_);
-}
+#ifdef _WIN32
 
-std::string WindowsException::message() const
+static std::string format_windows_exception_message(DWORD code, std::string_view user_msg)
 {
     char temp_buffer[1024] = {};
     FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM,
@@ -32,7 +17,22 @@ std::string WindowsException::message() const
                    temp_buffer,
                    sizeof(temp_buffer) - 1,
                    nullptr);
-    return absl::StrFormat("Windows error %d (%s): %s", code_, temp_buffer, user_msg_);
+    return absl::StrFormat("Windows error %X (%s): %s", code_, temp_buffer, user_msg_);
 }
 
+NtException::NtException(NTSTATUS code, std::string_view user_msg)
+    : runtime_error(absl::StrFormat("NT error %X: %s", code, user_msg)), code_(code)
+{
+}
+
+WindowsException::WindowsException(DWORD code, std::string_view user_msg)
+    : runtime_error(format_windows_exception_message(code, user_msg)), code_(code)
+{
+}
+#endif
+
+PosixException::PosixException(int code, std::string_view user_msg)
+    : runtime_error(absl::StrFormat("Posix error %X: %s", code, user_msg)), code_(code)
+{
+}
 }    // namespace securefs
