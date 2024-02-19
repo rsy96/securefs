@@ -5,6 +5,7 @@
 
 #include <absl/types/span.h>
 
+#include <memory>
 #include <stdexcept>
 #include <string_view>
 
@@ -18,7 +19,7 @@ struct SQLiteTraits
     static void cleanup(sqlite3* db) { sqlite3_close(db); }
 };
 
-class SQLiteDB : public RAII<sqlite3*, SQLiteTraits>
+class SQLiteDB
 {
 public:
     SQLiteDB() {}
@@ -26,6 +27,11 @@ public:
 
     void exec(const char* sql);
     SQLiteStatement statement(std::string_view sql);
+
+    sqlite3* get() noexcept { return ptr_->get(); }
+
+private:
+    std::shared_ptr<RAII<sqlite3*, SQLiteTraits>> ptr_;
 };
 
 struct SQLiteStatementTraits
@@ -34,14 +40,15 @@ struct SQLiteStatementTraits
     static void cleanup(sqlite3_stmt* stmt) { sqlite3_finalize(stmt); }
 };
 
-class SQLiteStatement : public RAII<sqlite3_stmt*, SQLiteStatementTraits>
+class SQLiteStatement
 {
 public:
-    SQLiteStatement() : RAII() {}
-    SQLiteStatement(sqlite3* db, std::string_view sql);
-    SQLiteStatement(const SQLiteDB& db, std::string_view sql) : SQLiteStatement(db.get(), sql) {}
+    SQLiteStatement() {}
+    SQLiteStatement(SQLiteDB db, std::string_view sql);
 
+    void reset();
     bool step();
+
     void bind_int(int column, int64_t value);
     void bind_text(int column, std::string_view value);
     void bind_blob(int column, absl::Span<const unsigned char> value);
@@ -49,6 +56,11 @@ public:
     int64_t get_int(int column);
     std::string_view get_text(int column);
     absl::Span<const unsigned char> get_blob(int column);
+    bool is_null(int column);
+
+private:
+    SQLiteDB db_;
+    RAII<sqlite3_stmt*, SQLiteStatementTraits> holder_;
 };
 
 class SQLiteException : public std::runtime_error

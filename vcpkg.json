@@ -13,6 +13,7 @@
         },
         "protobuf",
         "doctest",
-        "utf8proc"
+        "utf8proc",
+        "boost-numeric-conversion"
     ]
 }
