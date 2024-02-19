@@ -26,6 +26,22 @@ private:
     SQLiteStatement begin_ ABSL_GUARDED_BY(mu_), commit_ ABSL_GUARDED_BY(mu_),
         rollback_ ABSL_GUARDED_BY(mu_), lookup_ ABSL_GUARDED_BY(mu_), create_ ABSL_GUARDED_BY(mu_),
         remove_ ABSL_GUARDED_BY(mu_);
+
+    friend class TreeDBScopedLocker;
+};
+
+class ABSL_SCOPED_LOCKABLE TreeDBScopedLocker
+{
+private:
+    TreeDB& db_;
+
+public:
+    explicit TreeDBScopedLocker(TreeDB& db) ABSL_EXCLUSIVE_LOCK_FUNCTION(db.mu_) : db_(db)
+    {
+        db.lock_and_enter_transaction();
+    }
+
+    ~TreeDBScopedLocker() ABSL_UNLOCK_FUNCTION();
 };
 
 }    // namespace securefs

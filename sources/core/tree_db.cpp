@@ -129,4 +129,22 @@ void TreeDB::unlock_and_leave_transaction(bool rollback)
     mu_.Unlock();
 }
 
+TreeDBScopedLocker::~TreeDBScopedLocker()
+{
+    try
+    {
+        if (std::uncaught_exceptions() > 0)
+        {
+            db_.unlock_and_leave_transaction(true);
+        }
+        else
+        {
+            db_.unlock_and_leave_transaction(false);
+        }
+    }
+    catch (...)
+    {
+    }
+}
+
 }    // namespace securefs

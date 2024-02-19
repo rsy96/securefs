@@ -18,8 +18,7 @@ TEST_CASE("TreeDB")
     auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
     TreeDB tree(SQLiteDB(filename.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr));
-    tree.lock_and_enter_transaction();
+    TreeDBScopedLocker locker(tree);
     tree.create_tables(false);
-    tree.unlock_and_leave_transaction(false);
 }
 }    // namespace securefs
