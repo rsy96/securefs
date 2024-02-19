@@ -1,5 +1,5 @@
-#include "core/corefs.hpp"
-#include "core/rng.hpp"
+#include "corefs.hpp"
+#include "rng.hpp"
 
 #include <absl/cleanup/cleanup.h>
 #include <absl/strings/str_split.h>

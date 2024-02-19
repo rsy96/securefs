@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/sqlitehelper.hpp"
+#include "sqlitehelper.hpp"
 #include "protos/params.pb.h"
 
 #include <absl/base/thread_annotations.h>

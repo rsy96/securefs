@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/crypto_io.hpp"
-#include "core/io.hpp"
+#include "crypto_io.hpp"
+#include "io.hpp"
 #include "protos/params.pb.h"
 
 #include <sqlite3.h>

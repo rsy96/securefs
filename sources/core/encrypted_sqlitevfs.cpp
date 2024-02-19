@@ -1,8 +1,8 @@
-#include "core/encrypted_sqlitevfs.hpp"
-#include "core/crypto_io.hpp"
-#include "core/rng.hpp"
-#include "core/sqlitehelper.hpp"
-#include "core/utilities.hpp"
+#include "encrypted_sqlitevfs.hpp"
+#include "crypto_io.hpp"
+#include "rng.hpp"
+#include "sqlitehelper.hpp"
+#include "utilities.hpp"
 
 #include <absl/strings/str_format.h>
 

@@ -1,5 +1,5 @@
-#include "core/crypto_io.hpp"
-#include "core/rng.hpp"
+#include "crypto_io.hpp"
+#include "rng.hpp"
 
 #include <absl/base/internal/endian.h>
 #include <absl/strings/str_format.h>

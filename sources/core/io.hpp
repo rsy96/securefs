@@ -1,5 +1,5 @@
 #pragma once
-#include "core/object.hpp"
+#include "object.hpp"
 
 #include <absl/types/span.h>
 

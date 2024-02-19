@@ -1,5 +1,5 @@
 #pragma once
-#include "core/io.hpp"
+#include "io.hpp"
 #include "protos/params.pb.h"
 
 #include <cryptopp/aes.h>

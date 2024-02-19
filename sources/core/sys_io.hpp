@@ -1,5 +1,5 @@
 #pragma once
-#include "core/io.hpp"
+#include "io.hpp"
 
 namespace securefs
 {

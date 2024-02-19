@@ -1,4 +1,4 @@
-#include "core/rng.hpp"
+#include "rng.hpp"
 
 #include <cryptopp/osrng.h>
 

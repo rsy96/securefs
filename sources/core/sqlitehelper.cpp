@@ -1,4 +1,4 @@
-#include "core/sqlitehelper.hpp"
+#include "sqlitehelper.hpp"
 
 #include <absl/strings/str_format.h>
 

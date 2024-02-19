@@ -1,9 +1,10 @@
 #pragma once
-#include "core/utilities.hpp"
+#include "utilities.hpp"
 
 #include <sqlite3.h>
 
 #include <absl/types/span.h>
+
 #include <stdexcept>
 #include <string_view>
 

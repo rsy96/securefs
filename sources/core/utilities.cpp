@@ -1,5 +1,5 @@
-#include "core/rng.hpp"
-#include "core/utilities.hpp"
+#include "rng.hpp"
+#include "utilities.hpp"
 
 #include <absl/strings/str_format.h>
 
