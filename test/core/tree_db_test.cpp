@@ -29,7 +29,8 @@ void treedb_test(bool exact_name_lookup)
 
     {
         TreeDBScopedLocker locker(tree);
-        tree.create_entry(tree.kRootINode, "abc", FileType::DIRECTORY);
+        tree.create_entry(1, "abc", FileType::DIRECTORY);
+        tree.create_entry(1, "AaBbCc", FileType::REGULAR);
     }
 
     {
@@ -41,11 +42,19 @@ void treedb_test(bool exact_name_lookup)
             {
                 continue;
             }
-            auto result = tree.lookup_entry(TreeDB::kRootINode, "abc", mode);
+            auto result = tree.lookup_entry(1, "abc", mode);
             REQUIRE(result);
             CHECK(result->inode != 0);
             CHECK(result->file_type == FileType::DIRECTORY);
             CHECK(result->link_count == 1);
+        }
+
+        CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().file_type
+              == FileType::REGULAR);
+        if (!exact_name_lookup)
+        {
+            CHECK(tree.lookup_entry(1, "aabbcc", NameLookupMode::CASE_INSENSITIVE).value().file_type
+                  == FileType::REGULAR);
         }
     }
 }

@@ -143,7 +143,8 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
             lookup_case_insensitive_ = db_.statement(R"(
                 select inode, file_type, link_count from Entries
                     where (parent_inode = ?1 and name = ?2)
-                        or (parent_inode = ?1 and uninormed_name = ?2);
+                        or (parent_inode = ?1 and casefolded_name = ?2)
+                    limit 1;
             )");
         }
         stmt = &lookup_case_insensitive_;
@@ -164,7 +165,8 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
             lookup_uninormed_ = db_.statement(R"(
                 select inode, file_type, link_count from Entries
                     where (parent_inode = ?1 and name = ?2)
-                        or (parent_inode = ?1 and casefolded_name = ?2);
+                        or (parent_inode = ?1 and uninormed_name = ?2)
+                    limit 1;
             )");
         }
         stmt = &lookup_uninormed_;
