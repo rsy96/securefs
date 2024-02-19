@@ -12,13 +12,27 @@
 
 namespace securefs
 {
-TEST_CASE("TreeDB")
+void treedb_test(bool exact_name_lookup)
 {
     auto filename = random_hex_string(8) + ".db";
     auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
     TreeDB tree(SQLiteDB(filename.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr));
-    TreeDBScopedLocker locker(tree);
-    tree.create_tables(false);
+
+    {
+        TreeDBScopedLocker locker(tree);
+        tree.create_tables(exact_name_lookup);
+    }
+
+    {
+        TreeDBScopedLocker locker(tree);
+        tree.create_entry(tree.kRootINode, "abc", FileType::DIRECTORY);
+    }
+}
+
+TEST_CASE("TreeDB")
+{
+    treedb_test(true);
+    treedb_test(false);
 }
 }    // namespace securefs

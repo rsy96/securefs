@@ -55,7 +55,11 @@ public:
 
     RAII(RAII&& other) noexcept : r_(other.r_) { other.r_ = ResourceTraits::invalid(); }
 
-    RAII& operator=(RAII&& other) noexcept { std::swap(r_, other.r_); }
+    RAII& operator=(RAII&& other) noexcept
+    {
+        std::swap(r_, other.r_);
+        return *this;
+    }
 
     Resource& get() noexcept { return r_; }
 

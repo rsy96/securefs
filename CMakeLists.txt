@@ -36,6 +36,7 @@ find_package(SQLite3)
 find_package(Protobuf)
 find_package(unofficial-utf8proc)
 find_package(Boost)
+find_package(magic_enum)
 
 target_link_libraries(
     securefs-core
@@ -51,7 +52,8 @@ target_link_libraries(
            protobuf::libprotobuf
            SQLite::SQLite3
            utf8proc
-           Boost::boost)
+           Boost::boost
+           magic_enum::magic_enum)
 protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
                   ${CMAKE_CURRENT_BINARY_DIR}/out/)
 target_include_directories(securefs-core

@@ -29,6 +29,7 @@ public:
     SQLiteStatement statement(std::string_view sql);
 
     sqlite3* get() noexcept { return ptr_->get(); }
+    explicit operator bool() const noexcept { return ptr_->get(); }
 
 private:
     std::shared_ptr<RAII<sqlite3*, SQLiteTraits>> ptr_;
@@ -57,6 +58,8 @@ public:
     std::string_view get_text(int column);
     absl::Span<const unsigned char> get_blob(int column);
     bool is_null(int column);
+
+    explicit operator bool() const noexcept { return holder_.get(); }
 
 private:
     SQLiteDB db_;

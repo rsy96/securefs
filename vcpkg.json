@@ -14,6 +14,7 @@
         "protobuf",
         "doctest",
         "utf8proc",
-        "boost-numeric-conversion"
+        "boost-numeric-conversion",
+        "magic-enum"
     ]
 }

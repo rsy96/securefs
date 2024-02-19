@@ -1,8 +1,10 @@
 #include "tree_db.hpp"
+#include "rng.hpp"
 #include "utilities.hpp"
 
 #include <absl/cleanup/cleanup.h>
 #include <boost/numeric/conversion/cast.hpp>
+#include <magic_enum_all.hpp>
 #include <string_view>
 #include <utf8proc.h>
 
@@ -53,11 +55,8 @@ void TreeDB::create_tables(bool exact_only)
                 inode integer not null,
                 parent_inode integer not null,
                 name text not null,
-                mode integer not null,
-                link_count integer not null,
-                uid integer,
-                gid integer,
-                security_descriptor blob
+                file_type integer not null,
+                link_count integer not null
             );
             create index InodeOnEntries on Entries (inode);
             create unique index ParentNameOnEntries on Entries (parent_inode, name);
@@ -79,11 +78,45 @@ void TreeDB::create_tables(bool exact_only)
     }
 }
 
+int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileType file_type)
+{
+    int64_t inode = 0;
+    if (!lookup_count_of_inode_)
+    {
+        lookup_count_of_inode_
+            = SQLiteStatement(db_, "select count(1) from Entries where inode = ?;");
+    }
+    while (true)
+    {
+        generate_random(&inode, sizeof(inode));
+        lookup_count_of_inode_.reset();
+        lookup_count_of_inode_.step();
+        if (lookup_count_of_inode_.get_int(0) == 0)
+        {
+            break;
+        }
+    }
+    if (!create_)
+    {
+        create_ = SQLiteStatement(db_, R"(
+        insert into Entries (inode, parent_inode, name, file_type, link_count)
+            values (?, ?, ?, ?, 1);
+        )");
+    }
+    create_.reset();
+    create_.bind_int(1, inode);
+    create_.bind_int(2, parent_inode);
+    create_.bind_text(3, name);
+    create_.bind_int(4, magic_enum::enum_integer(file_type));
+    create_.step();
+    return inode;
+}
+
 TreeDB::TreeDB(SQLiteDB db)
     : db_(std::move(db))
-    , begin_(db_, "begin immediate;")
-    , commit_(db_, "commit")
-    , rollback_(db_, "rollback")
+    , begin_(db_, "begin;")
+    , commit_(db_, "commit;")
+    , rollback_(db_, "rollback;")
 {
     check_sqlite_call(db_.get(),
                       sqlite3_create_function_v2(db_.get(),
