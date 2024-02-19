@@ -71,8 +71,10 @@ void TreeDB::create_tables(bool exact_only)
         db_.exec(R"(
             alter table Entries add column casefolded_name as (casefold_if_changed(name));
             alter table Entries add column uninormed_name as (uninorm_if_changed(name));
-            create index ParentCaseFoldedNameOnEntries on Entries (parent_inode, casefolded_name);
-            create index ParentUniNormedNameOnEntries on Entries (parent_inode, uninormed_name);
+            create index ParentCaseFoldedNameOnEntries on Entries (parent_inode, casefolded_name) 
+                where casefolded_name is not null;
+            create index ParentUniNormedNameOnEntries on Entries (parent_inode, uninormed_name)
+                where uninormed_name is not null;
         )");
     }
 }
@@ -143,8 +145,9 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
             lookup_case_insensitive_ = db_.statement(R"(
                 select inode, file_type, link_count from Entries
                     where (parent_inode = ?1 and name = ?2)
-                        or (parent_inode = ?1 and casefolded_name = ?2)
-                    limit 1;
+                union
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and casefolded_name = ?2);
             )");
         }
         stmt = &lookup_case_insensitive_;
@@ -165,8 +168,9 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
             lookup_uninormed_ = db_.statement(R"(
                 select inode, file_type, link_count from Entries
                     where (parent_inode = ?1 and name = ?2)
-                        or (parent_inode = ?1 and uninormed_name = ?2)
-                    limit 1;
+                union
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and uninormed_name = ?2);
             )");
         }
         stmt = &lookup_uninormed_;
