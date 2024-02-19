@@ -26,9 +26,9 @@ TEST_CASE("Basic SQLite operations")
         SQLiteDB db(filename.c_str(),
                     SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
                     registry.vfs_name().c_str());
-        db.exec("PRAGMA locking_mode = EXCLUSIVE;");
+        db.exec("PRAGMA locking_mode = EXCLUSIVE; PRAGMA journal_mode=WAL;");
 
-        SQLiteStatement get_journal_mode(db, "PRAGMA journal_mode=WAL;");
+        SQLiteStatement get_journal_mode(db, "PRAGMA journal_mode;");
         REQUIRE(get_journal_mode.step());
         REQUIRE(get_journal_mode.get_text(1) == "wal");
 

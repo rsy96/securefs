@@ -8,6 +8,7 @@
 #include "memory_io.hpp"
 
 #include <absl/cleanup/cleanup.h>
+#include <absl/strings/str_cat.h>
 #include <doctest/doctest.h>
 
 #include <array>
@@ -16,6 +17,7 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#include <unistd.h>
 #endif
 
 namespace doctest
@@ -118,6 +120,10 @@ TEST_CASE("sqlite io against memory io")
     for (int i = 0; i < 100; ++i)
     {
         auto filename = random_hex_string(8) + ".sqliteraw";
+#ifndef _WIN32
+        char cwd[1024];
+        filename = absl::StrCat(getcwd(cwd, sizeof(cwd)), filename);
+#endif
         auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
         MemoryRandomIO referece_io;
@@ -129,7 +135,7 @@ TEST_CASE("sqlite io against memory io")
                            filename.c_str(),
                            file,
                            SQLITE_OPEN_DELETEONCLOSE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
-                               | SQLITE_OPEN_TEMP_DB,
+                               | SQLITE_OPEN_TRANSIENT_DB,
                            nullptr)
                 == SQLITE_OK);
 
