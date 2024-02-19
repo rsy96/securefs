@@ -84,11 +84,11 @@ namespace
 
     public:
         explicit EncryptedSqliteFileImpl(C_unique_ptr<sqlite3_file> delegate,
-                                         EncryptedVfsParams params)
-            : delegate_(std::move(delegate)), read_only_(params.read_only())
+                                         const EncryptedSqliteVfsRegistry::Params& params)
+            : delegate_(std::move(delegate)), read_only_(params.read_only)
         {
             io_ = std::make_unique<AesGcmRandomIO>(std::make_shared<SqliteFileIO>(delegate_.get()),
-                                                   std::move(*params.mutable_encryption_params()));
+                                                   params.encryption_params);
         }
         ~EncryptedSqliteFileImpl() {}
 
@@ -410,7 +410,7 @@ namespace
     // };
 }    // namespace
 
-EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(EncryptedVfsParams params,
+EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(const Params& params,
                                                        const char* base_vfs_name)
 {
     vfs_name_ = "securefs-" + random_hex_string(8);

@@ -2,7 +2,6 @@
 
 #include "crypto_io.hpp"
 #include "io.hpp"
-#include "protos/params.pb.h"
 
 #include <sqlite3.h>
 
@@ -26,13 +25,20 @@ public:
 
 class EncryptedSqliteVfsRegistry
 {
+public:
+    struct Params
+    {
+        AesGcmRandomIO::Params encryption_params{};
+        bool read_only{};
+    };
+
 private:
     std::string vfs_name_;
     sqlite3_vfs vfs_;
 
     struct EncryptedVfsAppData
     {
-        EncryptedVfsParams params;
+        Params params;
         sqlite3_vfs* vfs = nullptr;
     };
 
@@ -44,8 +50,7 @@ private:
     }
 
 public:
-    explicit EncryptedSqliteVfsRegistry(EncryptedVfsParams params,
-                                        const char* base_vfs_name = nullptr);
+    explicit EncryptedSqliteVfsRegistry(const Params& params, const char* base_vfs_name = nullptr);
     ~EncryptedSqliteVfsRegistry();
 
     EncryptedSqliteVfsRegistry(const EncryptedSqliteVfsRegistry&) = delete;

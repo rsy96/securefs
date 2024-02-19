@@ -12,11 +12,9 @@ namespace securefs
 {
 TEST_CASE("Basic SQLite operations")
 {
-    EncryptedVfsParams params;
-    params.mutable_encryption_params()->mutable_key()->resize(32);
-    generate_random(params.mutable_encryption_params()->mutable_key()->data(),
-                    params.mutable_encryption_params()->mutable_key()->size());
-    params.mutable_encryption_params()->set_underlying_block_size(4096 + 12 + 16);
+    EncryptedSqliteVfsRegistry::Params params;
+    generate_random(absl::MakeSpan(params.encryption_params.key));
+    params.encryption_params.underlying_block_size = 4096 + 12 + 16;
 
     auto filename = random_hex_string(8) + ".db";
     auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
@@ -52,7 +50,7 @@ TEST_CASE("Basic SQLite operations")
     )");
     }
     {
-        params.set_read_only(true);
+        params.read_only = true;
         EncryptedSqliteVfsRegistry registry(params);
         SQLiteDB db(filename.c_str(), SQLITE_OPEN_READONLY, registry.vfs_name().c_str());
         auto st = db.statement("select count(*) from Movies;");
