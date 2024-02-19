@@ -30,7 +30,7 @@ TEST_CASE("Basic SQLite operations")
 
         SQLiteStatement get_journal_mode(db, "PRAGMA journal_mode;");
         REQUIRE(get_journal_mode.step());
-        REQUIRE(get_journal_mode.get_text(1) == "wal");
+        REQUIRE(get_journal_mode.get_text(0) == "wal");
 
         db.exec(R"(
         CREATE TABLE Movies (
@@ -57,7 +57,7 @@ TEST_CASE("Basic SQLite operations")
         SQLiteDB db(filename.c_str(), SQLITE_OPEN_READONLY, registry.vfs_name().c_str());
         auto st = db.statement("select count(*) from Movies;");
         REQUIRE(st.step());
-        REQUIRE(st.get_int(1) == 5);
+        REQUIRE(st.get_int(0) == 5);
     }
 }
 }    // namespace securefs
