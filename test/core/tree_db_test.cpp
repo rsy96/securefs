@@ -31,6 +31,7 @@ void treedb_test(bool exact_name_lookup)
         TreeDBScopedLocker locker(tree);
         tree.create_entry(1, "abc", FileType::DIRECTORY);
         tree.create_entry(1, "AaBbCc", FileType::REGULAR);
+        tree.create_entry(1, "caf\xc3\xa9\xcc\x81", FileType::SYMLINK);
     }
 
     {
@@ -51,10 +52,20 @@ void treedb_test(bool exact_name_lookup)
 
         CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().file_type
               == FileType::REGULAR);
+        CHECK(tree.lookup_entry(1, "caf\xc3\xa9\xcc\x81", NameLookupMode::EXACT).value().file_type
+              == FileType::SYMLINK);
         if (!exact_name_lookup)
         {
             CHECK(tree.lookup_entry(1, "aabbcc", NameLookupMode::CASE_INSENSITIVE).value().file_type
                   == FileType::REGULAR);
+            CHECK(tree.lookup_entry(1, "caF\xc3\xa9\xcc\x81", NameLookupMode::CASE_INSENSITIVE)
+                      .value()
+                      .file_type
+                  == FileType::SYMLINK);
+            CHECK(tree.lookup_entry(1, "cafe\xcc\x81\xcc\x81", NameLookupMode::UNINORM)
+                      .value()
+                      .file_type
+                  == FileType::SYMLINK);
         }
     }
 }
