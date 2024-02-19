@@ -14,7 +14,7 @@ struct CDeleter
 {
     void operator()(T* ptr)
     {
-        static_assert(std::is_aggregate_v<T>);
+        static_assert(std::is_trivially_destructible_v<T>);
         if (ptr)
         {
             free(ptr);

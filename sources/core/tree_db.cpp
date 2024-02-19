@@ -4,8 +4,7 @@
 
 #include <absl/cleanup/cleanup.h>
 #include <boost/numeric/conversion/cast.hpp>
-#include <magic_enum_all.hpp>
-#include <string_view>
+#include <magic_enum.hpp>
 #include <utf8proc.h>
 
 namespace securefs
@@ -83,8 +82,7 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
     int64_t inode = 0;
     if (!lookup_count_of_inode_)
     {
-        lookup_count_of_inode_
-            = SQLiteStatement(db_, "select count(1) from Entries where inode = ?;");
+        lookup_count_of_inode_ = db_.statement("select count(1) from Entries where inode = ?;");
     }
     while (true)
     {
@@ -98,7 +96,7 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
     }
     if (!create_)
     {
-        create_ = SQLiteStatement(db_, R"(
+        create_ = db_.statement(R"(
         insert into Entries (inode, parent_inode, name, file_type, link_count)
             values (?, ?, ?, ?, 1);
         )");
@@ -110,6 +108,84 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
     create_.bind_int(4, magic_enum::enum_integer(file_type));
     create_.step();
     return inode;
+}
+
+std::optional<TreeDB::LookupResult>
+TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode lookup_mode)
+{
+    C_unique_ptr<unsigned char> guard;
+    SQLiteStatement* stmt = nullptr;
+
+    switch (lookup_mode)
+    {
+    case NameLookupMode::EXACT:
+        if (!lookup_exact_)
+        {
+            lookup_exact_ = db_.statement(R"(
+                select inode, file_type, link_count from Entries
+                    where parent_inode = ? and name = ?;
+            )");
+        }
+        stmt = &lookup_exact_;
+        break;
+    case NameLookupMode::CASE_INSENSITIVE:
+    {
+        unsigned char* mapped = nullptr;
+        auto mapped_size = utf8proc_map(
+            reinterpret_cast<const unsigned char*>(name.data()), name.size(), &mapped, kCaseFold);
+        if (mapped_size > 0)
+        {
+            guard.reset(mapped);
+            name = std::string_view(reinterpret_cast<const char*>(mapped), mapped_size);
+        }
+        if (!lookup_case_insensitive_)
+        {
+            lookup_case_insensitive_ = db_.statement(R"(
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and name = ?2)
+                        or (parent_inode = ?1 and uninormed_name = ?2);
+            )");
+        }
+        stmt = &lookup_case_insensitive_;
+    }
+    break;
+    case NameLookupMode::UNINORM:
+    {
+        unsigned char* mapped = nullptr;
+        auto mapped_size = utf8proc_map(
+            reinterpret_cast<const unsigned char*>(name.data()), name.size(), &mapped, kUniNorm);
+        if (mapped_size > 0)
+        {
+            guard.reset(mapped);
+            name = std::string_view(reinterpret_cast<const char*>(mapped), mapped_size);
+        }
+        if (!lookup_uninormed_)
+        {
+            lookup_uninormed_ = db_.statement(R"(
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and name = ?2)
+                        or (parent_inode = ?1 and casefolded_name = ?2);
+            )");
+        }
+        stmt = &lookup_uninormed_;
+    }
+    break;
+    }
+
+    std::optional<TreeDB::LookupResult> result;
+
+    stmt->reset();
+    stmt->bind_int(1, parent_inode);
+    stmt->bind_text(2, name);
+    if (!stmt->step())
+    {
+        return result;
+    }
+    result.emplace();
+    result->inode = stmt->get_int(0);
+    result->file_type = magic_enum::enum_cast<FileType>(stmt->get_int(1)).value();
+    result->link_count = stmt->get_int(2);
+    return result;
 }
 
 TreeDB::TreeDB(SQLiteDB db)

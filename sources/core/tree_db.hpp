@@ -6,6 +6,8 @@
 #include <absl/synchronization/mutex.h>
 
 #include <limits>
+#include <optional>
+#include <string_view>
 
 namespace securefs
 {
@@ -36,6 +38,17 @@ public:
     void create_tables(bool exact_only) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
     int64_t create_entry(int64_t parent_inode, std::string_view name, FileType file_type)
+        ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+    struct LookupResult
+    {
+        int64_t inode{};
+        FileType file_type{};
+        int64_t link_count{};
+    };
+
+    std::optional<LookupResult>
+    lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode lookup_mode)
         ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
     void lock_and_enter_transaction() ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_);
