@@ -27,10 +27,14 @@ namespace
         auto filename = random_hex_string(8) + ".db";
         auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
-        CoreFileSystem cfs(
-            SQLite::Database(filename, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE, 200),
-            inherent_params,
-            mount_params);
+        SQLiteDB db;
+        int rc = sqlite3_open_v2(filename.c_str(),
+                                 &db.get(),
+                                 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
+                                 nullptr);
+        REQUIRE(rc == SQLITE_OK);
+
+        CoreFileSystem cfs(std::move(db), inherent_params, mount_params);
 
         absl::MutexLock lock_guard(&cfs.mutex());
         REQUIRE(cfs.lookup("/a/b/c").file_id.has_value());

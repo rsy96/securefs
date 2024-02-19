@@ -12,13 +12,6 @@
 
 namespace securefs
 {
-static void check_sqlite_call(int rc)
-{
-    if (rc != SQLITE_OK)
-    {
-        throw SQLiteException(rc);
-    }
-}
 SqliteFileIO::SqliteFileIO(sqlite3_file* file) : file_(file)
 {
     if (!file)

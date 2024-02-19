@@ -1,8 +1,8 @@
 #include "core/encrypted_sqlitevfs.hpp"
 #include "core/rng.hpp"
+#include "core/sqlitehelper.hpp"
 #include "core/utilities.hpp"
 
-#include <SQLiteCpp/SQLiteCpp.h>
 #include <absl/cleanup/cleanup.h>
 #include <doctest/doctest.h>
 
@@ -23,14 +23,15 @@ TEST_CASE("Basic SQLite operations")
 
     {
         EncryptedSqliteVfsRegistry registry(params);
-
-        SQLite::Database db(filename,
-                            SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE,
-                            100,
-                            registry.vfs_name().c_str());
-
+        SQLiteDB db(filename.c_str(),
+                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
+                    registry.vfs_name().c_str());
         db.exec("PRAGMA locking_mode = EXCLUSIVE;");
-        CHECK(db.execAndGet("PRAGMA journal_mode=WAL;").getString() == "wal");
+
+        SQLiteStatement get_journal_mode(db, "PRAGMA journal_mode=WAL;");
+        REQUIRE(get_journal_mode.step());
+        REQUIRE(get_journal_mode.get_text(1) == "wal");
+
         db.exec(R"(
         CREATE TABLE Movies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,8 +54,10 @@ TEST_CASE("Basic SQLite operations")
     {
         params.set_read_only(true);
         EncryptedSqliteVfsRegistry registry(params);
-        SQLite::Database db(filename, SQLite::OPEN_READONLY, 100, registry.vfs_name().c_str());
-        CHECK(db.execAndGet("select count(*) from Movies;").getInt64() == 5);
+        SQLiteDB db(filename.c_str(), SQLITE_OPEN_READONLY, registry.vfs_name().c_str());
+        auto st = db.statement("select count(*) from Movies;");
+        REQUIRE(st.step());
+        REQUIRE(st.get_int(1) == 5);
     }
 }
 }    // namespace securefs

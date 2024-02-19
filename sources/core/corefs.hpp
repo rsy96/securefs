@@ -1,10 +1,8 @@
 #pragma once
 
+#include "core/sqlitehelper.hpp"
 #include "protos/params.pb.h"
 
-#include <SQLiteCpp/Database.h>
-#include <SQLiteCpp/Statement.h>
-#include <SQLiteCpp/Transaction.h>
 #include <absl/base/thread_annotations.h>
 #include <absl/synchronization/mutex.h>
 
@@ -22,7 +20,7 @@ class CoreTransaction;
 class CoreFileSystem
 {
 public:
-    explicit CoreFileSystem(SQLite::Database db,
+    explicit CoreFileSystem(SQLiteDB db,
                             const FileSystemInherentParams& inherent_params,
                             const FileSystemMountParams& mount_params);
 
@@ -42,16 +40,12 @@ public:
     };
 
     LookupResult lookup(std::string_view name) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-    void create(const FileId& parent_id,
-                std::string_view component_name,
-                FileType file_type,
-                FileId& file_id_output) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
 private:
     absl::Mutex mu_;
-    SQLite::Database db_ ABSL_GUARDED_BY(mu_);
-    SQLite::Statement lookup_st_ ABSL_GUARDED_BY(mu_);
-    SQLite::Statement create_st_ ABSL_GUARDED_BY(mu_);
+    SQLiteDB db_ ABSL_GUARDED_BY(mu_);
+    SQLiteStatement lookup_st_ ABSL_GUARDED_BY(mu_);
+    SQLiteStatement create_st_ ABSL_GUARDED_BY(mu_);
     FileSystemInherentParams inherent_params_;
     FileSystemMountParams mount_params_;
 
@@ -63,15 +57,9 @@ private:
     static const char* get_lookup_sql(FileSystemMountParams::NameLookupMode mode);
     static const char* get_create_sql();
 
-    friend class CoreTransaction;
-};
+    void check_sqlite_call(int rc) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-class CoreTransaction : public SQLite::Transaction
-{
-public:
-    explicit CoreTransaction(CoreFileSystem& cfs) ABSL_EXCLUSIVE_LOCKS_REQUIRED(cfs.mu_);
-    CoreTransaction(CoreTransaction&&) = delete;
-    CoreTransaction& operator=(CoreTransaction&&) = delete;
+    friend class CoreTransaction;
 };
 
 class NameLookupException : public std::exception

@@ -33,7 +33,6 @@ find_package(cryptopp)
 find_package(absl)
 find_package(doctest)
 find_package(SQLite3)
-find_package(SQLiteCpp)
 find_package(Protobuf)
 find_package(unofficial-utf8proc)
 
@@ -50,7 +49,6 @@ target_link_libraries(
            absl::synchronization
            protobuf::libprotobuf
            SQLite::SQLite3
-           SQLiteCpp
            utf8proc)
 protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
                   ${CMAKE_CURRENT_BINARY_DIR}/out/)
