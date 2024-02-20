@@ -85,6 +85,10 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
     while (true)
     {
         generate_random(&inode, sizeof(inode));
+        if (inode == 0)
+        {
+            continue;    // FUSE treats 0 inode as non-existent.
+        }
         lookup_count_of_inode_.reset();
         lookup_count_of_inode_.step();
         if (lookup_count_of_inode_.get_int(0) == 0)
@@ -156,6 +160,21 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
     return result;
 }
 
+bool TreeDB::remove_entry(int64_t parent_inode, int64_t inode)
+{
+    decrement_link_count_.reset();
+    decrement_link_count_.bind_int(1, inode);
+    decrement_link_count_.step();
+    get_link_count_.reset();
+    get_link_count_.bind_int(1, inode);
+    bool should_cleanup = (get_link_count_.get_int(0) <= 0);
+    remove_.reset();
+    remove_.bind_int(1, inode);
+    remove_.bind_int(2, parent_inode);
+    remove_.step();
+    return should_cleanup;
+}
+
 TreeDB::TreeDB(SQLiteDB db)
     : db_(std::move(db))
     , begin_(db_, "begin;")
@@ -184,6 +203,13 @@ TreeDB::TreeDB(SQLiteDB db)
         insert into Entries (inode, parent_inode, name, file_type, link_count)
             values (?, ?, ?, ?, 1);
         )")
+    , decrement_link_count_(db_, R"(
+        update Entries set link_count = link_count - 1 where inode = ?1;
+    )")
+    , get_link_count_(db_, "select link_count from Entries where inode = ?1 limit 1")
+    , remove_(db_, R"(
+        delete from Entries where inode = ? and parent_inode = ?;
+    )")
 {
     check_sqlite_call(db_.get(),
                       sqlite3_create_function_v2(db_.get(),

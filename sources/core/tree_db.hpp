@@ -49,6 +49,13 @@ public:
     std::optional<LookupResult>
     lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode lookup_mode);
 
+    /// @brief Remove an entry.
+    /// @param parent_inode The inode of the parent directory.
+    /// @param inode The inode to remove a link.
+    /// @return Whether all references to the inode are removed in the table. The underlying storage
+    /// should be cleaned up if this is true.
+    bool remove_entry(int64_t parent_inode, int64_t inode);
+
     void lock_and_enter_transaction() ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_);
     void leave_transaction_and_unlock(bool rollback) ABSL_UNLOCK_FUNCTION(mu_);
 
@@ -62,7 +69,8 @@ private:
     absl::Mutex mu_;
     SQLiteDB db_;
     SQLiteStatement begin_, commit_, rollback_, lookup_count_of_inode_, lookup_exact_,
-        lookup_case_insensitive_, lookup_uninormed_, create_, remove_;
+        lookup_case_insensitive_, lookup_uninormed_, create_, decrement_link_count_,
+        get_link_count_, remove_;
 };
 
 }    // namespace securefs

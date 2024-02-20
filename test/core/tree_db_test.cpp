@@ -25,16 +25,19 @@ void treedb_test(bool exact_name_lookup)
 
     synchronized_tree.synchronized([&](auto&& tree) { tree.create_tables(exact_name_lookup); });
 
+    std::vector<int64_t> inodes;
+
     synchronized_tree.synchronized(
-        [&](auto&& tree)
+        [&](TreeDB& tree)
         {
-            tree.create_entry(1, "abc", FileType::DIRECTORY);
-            tree.create_entry(1, "AaBbCc", FileType::REGULAR);
-            tree.create_entry(1, "caf\xc3\xa9\xcc\x81", FileType::SYMLINK);
+            inodes.push_back(tree.create_entry(1, "abc", FileType::DIRECTORY));
+            inodes.push_back(tree.create_entry(1, "AaBbCc", FileType::REGULAR));
+            inodes.push_back(tree.create_entry(1, "caf\xc3\xa9\xcc\x81", FileType::SYMLINK));
+            inodes.push_back(tree.create_entry(2, "--AaBbCc--", FileType::REGULAR));
         });
 
     synchronized_tree.synchronized(
-        [&](auto&& tree)
+        [&](TreeDB& tree)
         {
             for (auto [mode, mode_name] : magic_enum::enum_entries<NameLookupMode>())
             {
@@ -49,8 +52,8 @@ void treedb_test(bool exact_name_lookup)
                 CHECK(result->link_count == 1);
             }
 
-            CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().file_type
-                  == FileType::REGULAR);
+            CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().inode
+                  == inodes.at(1));
             CHECK(
                 tree.lookup_entry(1, "caf\xc3\xa9\xcc\x81", NameLookupMode::EXACT).value().file_type
                 == FileType::SYMLINK);
@@ -70,6 +73,13 @@ void treedb_test(bool exact_name_lookup)
                       == FileType::SYMLINK);
             }
         });
+
+    synchronized_tree.synchronized([&](TreeDB& tree)
+                                   { CHECK(tree.remove_entry(1, inodes.at(0))); });
+
+    synchronized_tree.synchronized(
+        [&](TreeDB& tree)
+        { CHECK(!tree.lookup_entry(1, "abc", NameLookupMode::EXACT).has_value()); });
 }
 
 TEST_CASE("TreeDB")
