@@ -20,54 +20,56 @@ void treedb_test(bool exact_name_lookup)
     auto filename = random_hex_string(8) + ".db";
     auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
-    TreeDB tree(SQLiteDB(filename.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr));
+    Synchronized<TreeDB> synchronized_tree(
+        SQLiteDB(filename.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr));
 
-    {
-        TreeDBScopedLocker locker(tree);
-        tree.create_tables(exact_name_lookup);
-    }
+    synchronized_tree.synchronized([&](auto&& tree) { tree.create_tables(exact_name_lookup); });
 
-    {
-        TreeDBScopedLocker locker(tree);
-        tree.create_entry(1, "abc", FileType::DIRECTORY);
-        tree.create_entry(1, "AaBbCc", FileType::REGULAR);
-        tree.create_entry(1, "caf\xc3\xa9\xcc\x81", FileType::SYMLINK);
-    }
-
-    {
-        TreeDBScopedLocker locker(tree);
-
-        for (auto [mode, mode_name] : magic_enum::enum_entries<NameLookupMode>())
+    synchronized_tree.synchronized(
+        [&](auto&& tree)
         {
-            if (exact_name_lookup && mode != NameLookupMode::EXACT)
+            tree.create_entry(1, "abc", FileType::DIRECTORY);
+            tree.create_entry(1, "AaBbCc", FileType::REGULAR);
+            tree.create_entry(1, "caf\xc3\xa9\xcc\x81", FileType::SYMLINK);
+        });
+
+    synchronized_tree.synchronized(
+        [&](auto&& tree)
+        {
+            for (auto [mode, mode_name] : magic_enum::enum_entries<NameLookupMode>())
             {
-                continue;
+                if (exact_name_lookup && mode != NameLookupMode::EXACT)
+                {
+                    continue;
+                }
+                auto result = tree.lookup_entry(1, "abc", mode);
+                REQUIRE(result);
+                CHECK(result->inode != 0);
+                CHECK(result->file_type == FileType::DIRECTORY);
+                CHECK(result->link_count == 1);
             }
-            auto result = tree.lookup_entry(1, "abc", mode);
-            REQUIRE(result);
-            CHECK(result->inode != 0);
-            CHECK(result->file_type == FileType::DIRECTORY);
-            CHECK(result->link_count == 1);
-        }
 
-        CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().file_type
-              == FileType::REGULAR);
-        CHECK(tree.lookup_entry(1, "caf\xc3\xa9\xcc\x81", NameLookupMode::EXACT).value().file_type
-              == FileType::SYMLINK);
-        if (!exact_name_lookup)
-        {
-            CHECK(tree.lookup_entry(1, "aabbcc", NameLookupMode::CASE_INSENSITIVE).value().file_type
+            CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).value().file_type
                   == FileType::REGULAR);
-            CHECK(tree.lookup_entry(1, "caF\xc3\xa9\xcc\x81", NameLookupMode::CASE_INSENSITIVE)
-                      .value()
-                      .file_type
-                  == FileType::SYMLINK);
-            CHECK(tree.lookup_entry(1, "cafe\xcc\x81\xcc\x81", NameLookupMode::UNINORM)
-                      .value()
-                      .file_type
-                  == FileType::SYMLINK);
-        }
-    }
+            CHECK(
+                tree.lookup_entry(1, "caf\xc3\xa9\xcc\x81", NameLookupMode::EXACT).value().file_type
+                == FileType::SYMLINK);
+            if (!exact_name_lookup)
+            {
+                CHECK(tree.lookup_entry(1, "aabbcc", NameLookupMode::CASE_INSENSITIVE)
+                          .value()
+                          .file_type
+                      == FileType::REGULAR);
+                CHECK(tree.lookup_entry(1, "caF\xc3\xa9\xcc\x81", NameLookupMode::CASE_INSENSITIVE)
+                          .value()
+                          .file_type
+                      == FileType::SYMLINK);
+                CHECK(tree.lookup_entry(1, "cafe\xcc\x81\xcc\x81", NameLookupMode::UNINORM)
+                          .value()
+                          .file_type
+                      == FileType::SYMLINK);
+            }
+        });
 }
 
 TEST_CASE("TreeDB")
