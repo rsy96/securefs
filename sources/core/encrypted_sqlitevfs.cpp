@@ -5,6 +5,7 @@
 #include "utilities.hpp"
 
 #include <absl/strings/str_format.h>
+#include <boost/numeric/conversion/cast.hpp>
 
 #include <limits>
 #include <memory>
@@ -40,8 +41,8 @@ SizeType SqliteFileIO::read(OffsetType offset, ByteBuffer output)
     {
         output = output.subspan(0, current_size - offset);
     }
-    check_sqlite_call(
-        file_->pMethods->xRead(file_, output.data(), static_cast<int>(output.size()), offset));
+    check_sqlite_call(file_->pMethods->xRead(
+        file_, output.data(), boost::numeric_cast<int>(output.size()), offset));
     return output.size();
 }
 void SqliteFileIO::write(OffsetType offset, ConstByteBuffer input)
@@ -54,8 +55,8 @@ void SqliteFileIO::write(OffsetType offset, ConstByteBuffer input)
     {
         throw std::out_of_range("Too large buffer");
     }
-    check_sqlite_call(
-        file_->pMethods->xWrite(file_, input.data(), static_cast<int>(input.size()), offset));
+    check_sqlite_call(file_->pMethods->xWrite(
+        file_, input.data(), boost::numeric_cast<int>(input.size()), offset));
 }
 
 SizeType SqliteFileIO::size() const
@@ -71,7 +72,7 @@ SizeType SqliteFileIO::size() const
         return file_->pMethods->xRead(file_, &c, 1, 0) == SQLITE_OK ? 1 : 0;
     }
 #endif
-    return static_cast<SizeType>(size);
+    return boost::numeric_cast<SizeType>(size);
 }
 
 void SqliteFileIO::resize(SizeType new_size)
@@ -176,7 +177,7 @@ namespace
             return SQLITE_NOTFOUND;
         }
 
-        int xSectorSize() noexcept { return static_cast<int>(io_->virtual_block_size()); }
+        int xSectorSize() noexcept { return boost::numeric_cast<int>(io_->virtual_block_size()); }
 
         int xDeviceCharacteristics() noexcept
         {
@@ -477,7 +478,7 @@ EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(const Params& params,
         {
             return SQLITE_MISUSE;
         }
-        generate_random(zOut, static_cast<size_t>(nByte));
+        generate_random(zOut, boost::numeric_cast<size_t>(nByte));
         return SQLITE_OK;
     };
 
