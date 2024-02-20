@@ -59,12 +59,6 @@ void TreeDB::create_tables(bool exact_only)
             );
             create index InodeOnEntries on Entries (inode);
             create unique index ParentNameOnEntries on Entries (parent_inode, name);
-
-            create table Xattr (
-                inode integer primary key,
-                xattr_key text not null,
-                xattr_value blob not null
-            );
         )");
     if (!exact_only)
     {
