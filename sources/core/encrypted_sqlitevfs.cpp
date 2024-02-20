@@ -62,6 +62,15 @@ SizeType SqliteFileIO::size() const
 {
     sqlite3_int64 size;
     check_sqlite_call(file_->pMethods->xFileSize(file_, &size));
+#ifndef _WIN32
+    // On Unix systems, sqlite has a workaround for a bug, which is a bug to us.
+    if (!size)
+    {
+        // Zero size may be reported even if the file has size 1. Use read() to distinguish.
+        char c = 0;
+        return file_->pMethods->xRead(file_, &c, 1, 0) == SQLITE_OK ? 1 : 0;
+    }
+#endif
     return static_cast<SizeType>(size);
 }
 
