@@ -53,7 +53,7 @@ TEST_CASE("Basic SQLite operations")
         params.read_only = true;
         EncryptedSqliteVfsRegistry registry(params);
         SQLiteDB db(filename.c_str(), SQLITE_OPEN_READONLY, registry.vfs_name().c_str());
-        auto st = db.statement("select count(*) from Movies;");
+        SQLiteStatement st(db, "select count(*) from Movies;");
         REQUIRE(st.step());
         REQUIRE(st.get_int(0) == 5);
     }

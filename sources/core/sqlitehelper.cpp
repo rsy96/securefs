@@ -38,22 +38,28 @@ void SQLiteDB::exec(const char* sql)
     check_sqlite_call(sqlite3_exec(get(), sql, nullptr, nullptr, nullptr));
 }
 
-SQLiteStatement SQLiteDB::statement(std::string_view sql) { return SQLiteStatement(*this, sql); }
-
-SQLiteStatement::SQLiteStatement(SQLiteDB db, std::string_view sql) : db_(std::move(db))
+SQLiteStatement::SQLiteStatement(SQLiteDB db, std::string sql)
+    : db_(std::move(db)), sql_(std::move(sql))
 {
-    check_sqlite_call(
-        db_.get(),
-        sqlite3_prepare_v2(
-            db_.get(), sql.data(), boost::numeric_cast<int>(sql.size()), &holder_.get(), nullptr));
 }
 
-void SQLiteStatement::reset() { check_sqlite_call(db_.get(), sqlite3_reset(holder_.get())); }
+void SQLiteStatement::reset()
+{
+    if (holder_.get())
+    {
+        check_sqlite_call(db_.get(), sqlite3_reset(holder_.get()));
+    }
+    else
+    {
+        prologue();
+    }
+}
 
 bool SQLiteStatement::step()
 {
-    int rc = sqlite3_step(holder_.get());
+    prologue();
 
+    int rc = sqlite3_step(holder_.get());
     switch (rc)
     {
     case SQLITE_ROW:
@@ -68,11 +74,13 @@ bool SQLiteStatement::step()
 
 void SQLiteStatement::bind_int(int column, int64_t value)
 {
+    prologue();
     check_sqlite_call(db_.get(), sqlite3_bind_int64(holder_.get(), column, value));
 }
 
 void SQLiteStatement::bind_text(int column, std::string_view value)
 {
+    prologue();
     check_sqlite_call(
         db_.get(),
         sqlite3_bind_text64(
@@ -81,6 +89,7 @@ void SQLiteStatement::bind_text(int column, std::string_view value)
 
 void SQLiteStatement::bind_blob(int column, absl::Span<const unsigned char> value)
 {
+    prologue();
     check_sqlite_call(
         db_.get(),
         sqlite3_bind_blob64(holder_.get(), column, value.data(), value.size(), SQLITE_STATIC));
@@ -103,6 +112,19 @@ absl::Span<const unsigned char> SQLiteStatement::get_blob(int column)
 bool SQLiteStatement::is_null(int column)
 {
     return sqlite3_column_type(holder_.get(), column) == SQLITE_NULL;
+}
+
+void SQLiteStatement::prologue()
+{
+    if (!holder_.get())
+    {
+        check_sqlite_call(db_.get(),
+                          sqlite3_prepare_v2(db_.get(),
+                                             sql_.data(),
+                                             boost::numeric_cast<int>(sql_.size()),
+                                             &holder_.get(),
+                                             nullptr));
+    }
 }
 
 }    // namespace securefs

@@ -82,10 +82,6 @@ void TreeDB::create_tables(bool exact_only)
 int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileType file_type)
 {
     int64_t inode = 0;
-    if (!lookup_count_of_inode_)
-    {
-        lookup_count_of_inode_ = db_.statement("select count(1) from Entries where inode = ?;");
-    }
     while (true)
     {
         generate_random(&inode, sizeof(inode));
@@ -95,13 +91,6 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
         {
             break;
         }
-    }
-    if (!create_)
-    {
-        create_ = db_.statement(R"(
-        insert into Entries (inode, parent_inode, name, file_type, link_count)
-            values (?, ?, ?, ?, 1);
-        )");
     }
     create_.reset();
     create_.bind_int(1, inode);
@@ -121,13 +110,6 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
     switch (lookup_mode)
     {
     case NameLookupMode::EXACT:
-        if (!lookup_exact_)
-        {
-            lookup_exact_ = db_.statement(R"(
-                select inode, file_type, link_count from Entries
-                    where parent_inode = ? and name = ?;
-            )");
-        }
         stmt = &lookup_exact_;
         break;
     case NameLookupMode::CASE_INSENSITIVE:
@@ -139,16 +121,6 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
         {
             guard.reset(mapped);
             name = std::string_view(reinterpret_cast<const char*>(mapped), mapped_size);
-        }
-        if (!lookup_case_insensitive_)
-        {
-            lookup_case_insensitive_ = db_.statement(R"(
-                select inode, file_type, link_count from Entries
-                    where (parent_inode = ?1 and name = ?2)
-                union
-                select inode, file_type, link_count from Entries
-                    where (parent_inode = ?1 and casefolded_name = ?2);
-            )");
         }
         stmt = &lookup_case_insensitive_;
     }
@@ -162,16 +134,6 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
         {
             guard.reset(mapped);
             name = std::string_view(reinterpret_cast<const char*>(mapped), mapped_size);
-        }
-        if (!lookup_uninormed_)
-        {
-            lookup_uninormed_ = db_.statement(R"(
-                select inode, file_type, link_count from Entries
-                    where (parent_inode = ?1 and name = ?2)
-                union
-                select inode, file_type, link_count from Entries
-                    where (parent_inode = ?1 and uninormed_name = ?2);
-            )");
         }
         stmt = &lookup_uninormed_;
     }
@@ -199,6 +161,29 @@ TreeDB::TreeDB(SQLiteDB db)
     , begin_(db_, "begin;")
     , commit_(db_, "commit;")
     , rollback_(db_, "rollback;")
+    , lookup_count_of_inode_(db_, "select count(1) from Entries where inode = ?;")
+    , lookup_exact_(db_, R"(
+                select inode, file_type, link_count from Entries
+                    where parent_inode = ? and name = ?;
+            )")
+    , lookup_case_insensitive_(db_, R"(
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and name = ?2)
+                union
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and casefolded_name = ?2);
+            )")
+    , lookup_uninormed_(db_, R"(
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and name = ?2)
+                union
+                select inode, file_type, link_count from Entries
+                    where (parent_inode = ?1 and uninormed_name = ?2);
+            )")
+    , create_(db_, R"(
+        insert into Entries (inode, parent_inode, name, file_type, link_count)
+            values (?, ?, ?, ?, 1);
+        )")
 {
     check_sqlite_call(db_.get(),
                       sqlite3_create_function_v2(db_.get(),

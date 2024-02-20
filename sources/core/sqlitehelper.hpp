@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 
 namespace securefs
@@ -26,7 +27,6 @@ public:
     SQLiteDB(const char* filename, int flags, const char* vfs);
 
     void exec(const char* sql);
-    SQLiteStatement statement(std::string_view sql);
 
     sqlite3* get() noexcept { return ptr_->get(); }
     explicit operator bool() const noexcept { return ptr_->get(); }
@@ -45,7 +45,7 @@ class SQLiteStatement
 {
 public:
     SQLiteStatement() {}
-    SQLiteStatement(SQLiteDB db, std::string_view sql);
+    SQLiteStatement(SQLiteDB db, std::string sql);
 
     void reset();
     bool step();
@@ -63,7 +63,10 @@ public:
 
 private:
     SQLiteDB db_;
+    std::string sql_;
     RAII<sqlite3_stmt*, SQLiteStatementTraits> holder_;
+
+    void prologue();
 };
 
 class SQLiteException : public std::runtime_error
