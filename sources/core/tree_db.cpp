@@ -165,14 +165,16 @@ bool TreeDB::remove_entry(int64_t parent_inode, int64_t inode)
     decrement_link_count_.reset();
     decrement_link_count_.bind_int(1, inode);
     decrement_link_count_.step();
-    get_link_count_.reset();
-    get_link_count_.bind_int(1, inode);
-    bool should_cleanup = (get_link_count_.get_int(0) <= 0);
+    int64_t last_changes = db_.last_changes();
+    if (last_changes <= 0)
+    {
+        return false;
+    }
     remove_.reset();
     remove_.bind_int(1, inode);
     remove_.bind_int(2, parent_inode);
     remove_.step();
-    return should_cleanup;
+    return last_changes == 1;
 }
 
 TreeDB::TreeDB(SQLiteDB db)
@@ -206,7 +208,6 @@ TreeDB::TreeDB(SQLiteDB db)
     , decrement_link_count_(db_, R"(
         update Entries set link_count = link_count - 1 where inode = ?1;
     )")
-    , get_link_count_(db_, "select link_count from Entries where inode = ?1 limit 1")
     , remove_(db_, R"(
         delete from Entries where inode = ? and parent_inode = ?;
     )")

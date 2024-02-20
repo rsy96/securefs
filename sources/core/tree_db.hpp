@@ -69,8 +69,7 @@ private:
     absl::Mutex mu_;
     SQLiteDB db_;
     SQLiteStatement begin_, commit_, rollback_, lookup_count_of_inode_, lookup_exact_,
-        lookup_case_insensitive_, lookup_uninormed_, create_, decrement_link_count_,
-        get_link_count_, remove_;
+        lookup_case_insensitive_, lookup_uninormed_, create_, decrement_link_count_, remove_;
 };
 
 }    // namespace securefs

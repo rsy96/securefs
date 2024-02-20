@@ -79,7 +79,10 @@ void treedb_test(bool exact_name_lookup)
 
     synchronized_tree.synchronized(
         [&](TreeDB& tree)
-        { CHECK(!tree.lookup_entry(1, "abc", NameLookupMode::EXACT).has_value()); });
+        {
+            CHECK(!tree.lookup_entry(1, "abc", NameLookupMode::EXACT).has_value());
+            CHECK(tree.lookup_entry(1, "AaBbCc", NameLookupMode::EXACT).has_value());
+        });
 }
 
 TEST_CASE("TreeDB")

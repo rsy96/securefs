@@ -30,6 +30,7 @@ public:
 
     sqlite3* get() noexcept { return ptr_->get(); }
     explicit operator bool() const noexcept { return ptr_->get(); }
+    int64_t last_changes() noexcept { return sqlite3_changes64(ptr_->get()); }
 
 private:
     std::shared_ptr<RAII<sqlite3*, SQLiteTraits>> ptr_;
