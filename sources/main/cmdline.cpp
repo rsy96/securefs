@@ -17,11 +17,26 @@ namespace securefs
 {
 
 template <typename V>
-std::string transform_help(std::string_view doc, bool has_user_specified_default, V&& default_value)
+static std::string
+transform_help(std::string_view doc, bool has_user_specified_default, V&& default_value)
 {
     return has_user_specified_default ? absl::StrFormat("%s (default: %v)", doc, default_value)
                                       : std::string{doc.data(), doc.size()};
 }
+
+static std::string prepend_dash(std::string_view arg_name)
+{
+    if (arg_name.empty())
+    {
+        return {};
+    }
+    if (arg_name.size() > 1)
+    {
+        return absl::StrCat("--", arg_name);
+    }
+    return absl::StrCat("-", arg_name);
+}
+
 void add_all_options_to_parser(argparse::ArgumentParser& parser,
                                const google::protobuf::Descriptor* descriptor,
                                std::string_view name_prefix)
@@ -38,11 +53,15 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
         { return f1->number() < f2->number(); });
     for (const google::protobuf::FieldDescriptor* f : fields)
     {
-        const ArgOption& opt = f->options().GetExtension(::securefs::arg_option);
-        if (!opt.has_doc())
+        if (!f->options().HasExtension(::securefs::arg_option))
         {
             continue;
         }
+        if (f->is_repeated())
+        {
+            throw std::invalid_argument("Cannot handle repeated fields yet");
+        }
+        const ArgOption& opt = f->options().GetExtension(::securefs::arg_option);
         std::string long_name
             = absl::StrCat(name_prefix, absl::StrReplaceAll(f->name(), {{"_", "-"}}));
         if (f->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
@@ -53,34 +72,27 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
                                                        : absl::StrCat(long_name, "-"));
             continue;
         }
-        std::string short_name;
+        std::string alt_name = opt.alt_name();
+        if (!alt_name.empty())
+        {
+            alt_name = absl::StrCat(name_prefix, alt_name);
+        }
         if (!opt.positional())
         {
-            long_name = absl::StrCat("--", long_name);
-            if (!opt.short_name().empty())
-            {
-                if (!name_prefix.empty())
-                {
-                    throw std::invalid_argument(
-                        "short_name cannot be specified on a nested message field");
-                }
-                short_name = absl::StrCat("-", opt.short_name());
-            }
+            long_name = prepend_dash(long_name);
+            alt_name = prepend_dash(alt_name);
         }
+
         argparse::Argument* argument = nullptr;
-        if (short_name.empty())
+        if (alt_name.empty())
         {
             argument = &parser.add_argument(long_name);
         }
         else
         {
-            argument = &parser.add_argument(long_name, short_name);
+            argument = &parser.add_argument(long_name, alt_name);
         }
-        if (f->is_repeated())
-        {
-            throw std::invalid_argument("Cannot handle repeated fields yet");
-        }
-        if (opt.is_required() || f->is_required())
+        if (f->is_required())
         {
             argument->required();
         }
@@ -134,7 +146,7 @@ void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
         }
         if (!opt.positional())
         {
-            long_name = absl::StrCat("--", long_name);
+            long_name = prepend_dash(long_name);
         }
         switch (f->cpp_type())
         {

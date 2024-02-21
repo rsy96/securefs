@@ -7,10 +7,9 @@ import "protos/params.proto";
 
 message CreateCmdOptions
 {
-    optional string repository = 1 [
+    required string repository = 1 [
         (arg_option) = {
             doc : "The path to the directory to store files.",
-            is_required : true,
             positional : true,
         }
     ];
