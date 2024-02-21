@@ -15,6 +15,7 @@
         "doctest",
         "utf8proc",
         "boost-numeric-conversion",
-        "magic-enum"
+        "magic-enum",
+        "argparse"
     ]
 }

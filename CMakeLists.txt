@@ -26,7 +26,6 @@ endif()
 
 file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp protos/*.proto)
 add_library(securefs-core STATIC ${CORE_SOURCES})
-target_include_directories(securefs-core PUBLIC sources)
 
 find_package(Threads)
 find_package(cryptopp)
@@ -59,10 +58,24 @@ protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
 target_include_directories(securefs-core
                            PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out/)
 
-file(GLOB TEST_CORE_SOURCES test/core/*.hpp test/core/*.cpp test/test_main.cpp)
+find_package(argparse)
+file(GLOB MAIN_SOURCES sources/main/*.hpp sources/main/*.cpp)
+add_library(securefs-main STATIC ${MAIN_SOURCES})
+target_link_libraries(securefs-main PUBLIC securefs-core argparse::argparse)
+target_include_directories(securefs-main PUBLIC sources)
+
+file(
+    GLOB
+    TEST_CORE_SOURCES
+    test/core/*.hpp
+    test/core/*.cpp
+    test/main/*.cpp
+    test/main/*.hpp
+    test/test_main.cpp)
 add_executable(securefs-test ${TEST_CORE_SOURCES})
 find_package(doctest REQUIRED)
-target_link_libraries(securefs-test PRIVATE securefs-core doctest::doctest)
+target_link_libraries(securefs-test PRIVATE securefs-core securefs-main
+                                            doctest::doctest)
 add_test(
     NAME securefs-test
     COMMAND securefs-test
