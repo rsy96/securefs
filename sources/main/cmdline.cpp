@@ -19,14 +19,13 @@ namespace securefs
 template <typename V>
 std::string transform_help(std::string_view doc, bool has_user_specified_default, V&& default_value)
 {
-    return has_user_specified_default ? absl::StrFormat("%s: (default: %v)", doc, default_value)
+    return has_user_specified_default ? absl::StrFormat("%s (default: %v)", doc, default_value)
                                       : std::string{doc.data(), doc.size()};
 }
 void add_all_options_to_parser(argparse::ArgumentParser& parser,
-                               const google::protobuf::Message& msg)
+                               const google::protobuf::Descriptor* descriptor,
+                               std::string_view name_prefix)
 {
-    auto descriptor = msg.GetDescriptor();
-
     std::vector<const google::protobuf::FieldDescriptor*> fields(descriptor->field_count());
     for (size_t i = 0; i < fields.size(); ++i)
     {
@@ -44,13 +43,27 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
         {
             continue;
         }
-        std::string long_name = absl::StrReplaceAll(f->name(), {{"_", "-"}});
+        std::string long_name
+            = absl::StrCat(name_prefix, absl::StrReplaceAll(f->name(), {{"_", "-"}}));
+        if (f->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
+        {
+            add_all_options_to_parser(parser,
+                                      f->message_type(),
+                                      opt.has_prefix() ? opt.prefix()
+                                                       : absl::StrCat(long_name, "-"));
+            continue;
+        }
         std::string short_name;
         if (!opt.positional())
         {
             long_name = absl::StrCat("--", long_name);
             if (!opt.short_name().empty())
             {
+                if (!name_prefix.empty())
+                {
+                    throw std::invalid_argument(
+                        "short_name cannot be specified on a nested message field");
+                }
                 short_name = absl::StrCat("-", opt.short_name());
             }
         }
@@ -96,7 +109,8 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
     }
 }
 void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
-                                        google::protobuf::Message& msg)
+                                        google::protobuf::Message& msg,
+                                        std::string_view name_prefix)
 {
     auto descriptor = msg.GetDescriptor();
     auto reflection = msg.GetReflection();
@@ -108,7 +122,16 @@ void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
         {
             continue;
         }
-        std::string long_name = absl::StrReplaceAll(f->name(), {{"_", "-"}});
+        std::string long_name
+            = absl::StrCat(name_prefix, absl::StrReplaceAll(f->name(), {{"_", "-"}}));
+        if (f->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
+        {
+            extract_options_from_parsed_parser(parser,
+                                               *(reflection->MutableMessage(&msg, f)),
+                                               opt.has_prefix() ? opt.prefix()
+                                                                : absl::StrCat(long_name, "-"));
+            continue;
+        }
         if (!opt.positional())
         {
             long_name = absl::StrCat("--", long_name);

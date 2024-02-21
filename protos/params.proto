@@ -1,9 +1,49 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package securefs;
 
+import "protos/argopt.proto";
+
 message FileSystemInherentParams
 {
-    bool exact_name_only = 1;
-    uint64 underlying_block_size = 2;
+    optional bool exact_name_only = 1;
+    optional uint64 underlying_block_size = 2;
+    optional uint64 virtual_block_size_for_tree_db = 3;
+
+    message EncryptedData
+    {
+        optional bytes iv = 1;
+        optional bytes mac = 2;
+        optional bytes ciphertext = 3;
+    }
+
+    message MasterKeys
+    {
+        optional bytes tree_key = 1;
+        optional bytes file_key = 2;
+        optional bytes padding_key = 3;
+    }
+}
+
+message Argon2idParams
+{
+    optional bytes salt = 1;
+    optional int64 time_cost = 2 [
+        default = 5,
+        (arg_option) = {
+            doc : "Defines the amount of computation realized and therefore the execution time, given in number of iterations."
+        }
+    ];
+    optional int64 memory_cost = 3 [
+        default = 256,
+        (arg_option) = {
+            doc : "Defines the memory usage, given in MiB."
+        }
+    ];
+    optional int64 parallelism = 4 [
+        default = 4,
+        (arg_option) = {
+            doc : " Defines the number of parallel threads (changes the resulting hash value)."
+        }
+    ];
 }

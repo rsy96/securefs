@@ -2,20 +2,8 @@ syntax = "proto2";
 
 package securefs;
 
-import "google/protobuf/descriptor.proto";
-
-message ArgOption
-{
-    optional string doc = 1;
-    optional bool is_required = 2;
-    optional bool positional = 3;
-    optional string short_name = 4;
-}
-
-extend google.protobuf.FieldOptions
-{
-    optional ArgOption arg_option = 60056698;
-}
+import "protos/argopt.proto";
+import "protos/params.proto";
 
 message CreateCmdOptions
 {
@@ -38,4 +26,13 @@ message CreateCmdOptions
     optional bool exact_name = 5 [ (arg_option) = {
         doc : "If set, the filesystem will not support case insensitive and Unicode normalized name lookup. This can save some storage, if you only use Linux/BSD."
     } ];
+
+    oneof pbkdf_params
+    {
+        Argon2idParams argon2 = 6 [
+            (arg_option) = {
+                doc : "Use argon2 for pbkdf"
+            }
+        ];
+    }
 }
