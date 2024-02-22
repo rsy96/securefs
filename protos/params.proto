@@ -28,26 +28,22 @@ message MasterKeys
 
 message Argon2idParams
 {
-    bytes salt = 1;
-    int64 time_cost = 2 [
+    int64 time_cost = 1 [
         (arg_option) = {
             doc : "Defines the amount of computation realized and therefore the execution time, given in number of iterations."
             alt_name : "t"
-            default_int64 : 5
         }
     ];
-    int64 memory_cost = 3 [
+    int64 memory_cost = 2 [
         (arg_option) = {
             doc : "Defines the memory usage, given in MiB."
             alt_name : "m"
-            default_int64 : 256
         }
     ];
-    int64 parallelism = 4 [
+    int64 parallelism = 3 [
         (arg_option) = {
             doc : " Defines the number of parallel threads (changes the resulting hash value)."
             alt_name : "p"
-            default_int64 : 4
         }
     ];
 }

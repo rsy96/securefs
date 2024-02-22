@@ -17,16 +17,14 @@ message ArgOption
     optional string prefix = 4;
     // Only useful if not positional.
     optional bool is_required = 5;
-
-    oneof default_value
-    {
-        int64 default_int64 = 6;
-        bool default_bool = 7;
-        string default_string = 8;
-    }
 }
 
 extend google.protobuf.FieldOptions
 {
-    optional ArgOption arg_option = 60056698;
+    optional ArgOption arg_option = 60820965;
+}
+
+extend google.protobuf.OneofOptions
+{
+    optional ArgOption oneof_arg_option = 60820965;
 }

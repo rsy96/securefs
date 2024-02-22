@@ -7,7 +7,7 @@
 namespace securefs
 {
 void add_all_options_to_parser(argparse::ArgumentParser& parser,
-                               const google::protobuf::Descriptor* descriptor,
+                               const google::protobuf::Message& msg,
                                std::string_view name_prefix = {});
 void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
                                         google::protobuf::Message& msg,

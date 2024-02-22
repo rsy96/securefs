@@ -30,7 +30,7 @@ message CreateCmdOptions
     {
         Argon2idParams argon2_params = 6 [
             (arg_option) = {
-                prefix : "ar"
+                prefix : "ar-"
             }
         ];
     }
