@@ -21,8 +21,8 @@ TEST_CASE("Parse create options")
     CHECK(options.repository() == "repo");
     CHECK(options.exact_name());
     CHECK(options.password() == "123");
-    CHECK(!options.has_tree_db());
-    CHECK(options.argon2().memory_cost() == 512);
-    CHECK(!options.argon2().has_parallelism());
+    CHECK(options.tree_db().empty());
+    CHECK(options.argon2_params().memory_cost() == 512);
+    CHECK(options.argon2_params().parallelism() == 4);
 }
 }    // namespace securefs

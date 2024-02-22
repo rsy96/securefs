@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 
 package securefs;
 
@@ -6,56 +6,56 @@ import "protos/argopt.proto";
 
 message SecureFSParams
 {
-    required int32 format_version = 1;
-    optional bool exact_name_only = 2;
-    optional uint64 underlying_block_size = 3;
-    optional uint64 virtual_block_size_for_tree_db = 4;
+    int32 format_version = 1;
+    bool exact_name_only = 2;
+    uint64 underlying_block_size = 3;
+    uint64 virtual_block_size_for_tree_db = 4;
 }
 
 message EncryptedData
 {
-    optional bytes iv = 1;
-    optional bytes mac = 2;
-    optional bytes ciphertext = 3;
+    bytes iv = 1;
+    bytes mac = 2;
+    bytes ciphertext = 3;
 }
 
 message MasterKeys
 {
-    optional bytes tree_key = 1;
-    optional bytes file_key = 2;
-    optional bytes padding_key = 3;
+    bytes tree_key = 1;
+    bytes file_key = 2;
+    bytes padding_key = 3;
 }
 
 message Argon2idParams
 {
-    optional bytes salt = 1;
-    optional int64 time_cost = 2 [
-        default = 5,
+    bytes salt = 1;
+    int64 time_cost = 2 [
         (arg_option) = {
             doc : "Defines the amount of computation realized and therefore the execution time, given in number of iterations."
             alt_name : "t"
+            default_int64 : 5
         }
     ];
-    optional int64 memory_cost = 3 [
-        default = 256,
+    int64 memory_cost = 3 [
         (arg_option) = {
             doc : "Defines the memory usage, given in MiB."
             alt_name : "m"
+            default_int64 : 256
         }
     ];
-    optional int64 parallelism = 4 [
-        default = 4,
+    int64 parallelism = 4 [
         (arg_option) = {
             doc : " Defines the number of parallel threads (changes the resulting hash value)."
             alt_name : "p"
+            default_int64 : 4
         }
     ];
 }
 
 message SecureFSConfig
 {
-    optional SecureFSParams params = 1;
-    optional EncryptedData encrypted_master_keys = 2;
+    SecureFSParams params = 1;
+    EncryptedData encrypted_master_keys = 2;
     oneof pbkdf
     {
         Argon2idParams argon2_params = 3;
