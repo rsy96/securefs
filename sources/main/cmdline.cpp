@@ -109,6 +109,10 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
             argument->scan<'d', int64_t>().help(transform_help(
                 opt.doc(), reflection->HasField(msg, f), reflection->GetInt64(msg, f)));
             break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
+            argument->scan<'u', uint64_t>().help(transform_help(
+                opt.doc(), reflection->HasField(msg, f), reflection->GetUInt64(msg, f)));
+            break;
         case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
             argument->help(transform_help(
                 opt.doc(), reflection->HasField(msg, f), reflection->GetString(msg, f)));
@@ -169,6 +173,13 @@ extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
             {
                 auto* msg = lazy_msg();
                 msg->GetReflection()->SetInt64(msg, f, *v);
+            }
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
+            if (auto v = parser.present<uint64_t>(long_name))
+            {
+                auto* msg = lazy_msg();
+                msg->GetReflection()->SetUInt64(msg, f, *v);
             }
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_STRING:

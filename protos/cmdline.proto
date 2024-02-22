@@ -23,8 +23,8 @@ message CreateCmdOptions
         doc : "Path to the key file."
         alt_name : "keyfile"
     } ];
-    bool exact_name = 5 [ (arg_option) = {
-        doc : "If set, the filesystem will not support case insensitive and Unicode normalized name lookup. This can save some storage, if you only use Linux/BSD."
+    SecureFSParams params = 5 [ (arg_option) = {
+        prefix : ""
     } ];
 
     oneof pbkdf_params

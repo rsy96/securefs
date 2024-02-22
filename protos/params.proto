@@ -4,14 +4,6 @@ package securefs;
 
 import "protos/argopt.proto";
 
-message SecureFSParams
-{
-    int32 format_version = 1;
-    bool exact_name_only = 2;
-    uint64 underlying_block_size = 3;
-    uint64 virtual_block_size_for_tree_db = 4;
-}
-
 message EncryptedData
 {
     bytes iv = 1;
@@ -48,7 +40,30 @@ message Argon2idParams
     ];
 }
 
-message SecureFSConfig
+message SecureFSParams
+{
+    int32 format_version = 1;
+    bool exact_name_only = 2 [
+        (arg_option) = {
+            doc : "If set, the filesystem will not support case insensitive and Unicode normalized name lookup. This can save some storage, if you only use Linux/BSD."
+            alt_name : "exact"
+        }
+    ];
+    uint64 underlying_block_size = 3 [
+        (arg_option) = {
+            doc : "The block size for the virtual filesystem plus the overhead (48 bytes). Usually it should be a power of 2."
+            alt_name : "block"
+        }
+    ];
+    uint64 virtual_block_size_for_tree_db = 4 [
+        (arg_option) = {
+            doc : "The block size for the SQLite database (tree.db). Usually it should be a power of 2."
+            alt_name : "tree-block"
+        }
+    ];
+}
+
+message SecureFSSerializedConfig
 {
     SecureFSParams params = 1;
     EncryptedData encrypted_master_keys = 2;
@@ -56,4 +71,5 @@ message SecureFSConfig
     {
         Argon2idParams argon2_params = 3;
     }
+    bytes salt = 4;
 }
