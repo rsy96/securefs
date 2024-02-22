@@ -21,6 +21,7 @@ message CreateCmdOptions
     } ];
     string key_file = 4 [ (arg_option) = {
         doc : "Path to the key file."
+        alt_name : "keyfile"
     } ];
     bool exact_name = 5 [ (arg_option) = {
         doc : "If set, the filesystem will not support case insensitive and Unicode normalized name lookup. This can save some storage, if you only use Linux/BSD."

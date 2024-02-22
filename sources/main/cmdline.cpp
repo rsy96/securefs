@@ -122,12 +122,12 @@ void add_all_options_to_parser(argparse::ArgumentParser& parser,
     }
 }
 
-void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
-                                        google::protobuf::Message& msg,
-                                        std::string_view name_prefix)
+static void
+extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
+                                   const std::function<google::protobuf::Message*()>& lazy_msg,
+                                   const google::protobuf::Descriptor* descriptor,
+                                   std::string_view name_prefix)
 {
-    auto descriptor = msg.GetDescriptor();
-    auto reflection = msg.GetReflection();
     for (int i = 0; i < descriptor->field_count(); ++i)
     {
         const google::protobuf::FieldDescriptor* f = descriptor->field(i);
@@ -140,10 +140,15 @@ void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
             = absl::StrCat(name_prefix, absl::StrReplaceAll(f->name(), {{"_", "-"}}));
         if (f->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
         {
-            extract_options_from_parsed_parser(parser,
-                                               *(reflection->MutableMessage(&msg, f)),
-                                               opt.has_prefix() ? opt.prefix()
-                                                                : absl::StrCat(long_name, "-"));
+            extract_options_from_parsed_parser(
+                parser,
+                [&]()
+                {
+                    auto* msg = lazy_msg();
+                    return msg->GetReflection()->MutableMessage(msg, f);
+                },
+                f->message_type(),
+                opt.has_prefix() ? opt.prefix() : absl::StrCat(long_name, "-"));
             continue;
         }
         if (!opt.positional())
@@ -155,24 +160,35 @@ void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
         case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
             if (auto v = parser.present<bool>(long_name))
             {
-                reflection->SetBool(&msg, f, *v);
+                auto* msg = lazy_msg();
+                msg->GetReflection()->SetBool(msg, f, *v);
             }
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
             if (auto v = parser.present<int64_t>(long_name))
             {
-                reflection->SetInt64(&msg, f, *v);
+                auto* msg = lazy_msg();
+                msg->GetReflection()->SetInt64(msg, f, *v);
             }
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
             if (auto v = parser.present<std::string>(long_name))
             {
-                reflection->SetString(&msg, f, *v);
+                auto* msg = lazy_msg();
+                msg->GetReflection()->SetString(msg, f, *v);
             }
             break;
         default:
             throw std::invalid_argument("Unsupported type");
         }
     }
+}
+
+void extract_options_from_parsed_parser(const argparse::ArgumentParser& parser,
+                                        google::protobuf::Message& msg,
+                                        std::string_view name_prefix)
+{
+    extract_options_from_parsed_parser(
+        parser, [&]() { return &msg; }, msg.GetDescriptor(), name_prefix);
 }
 }    // namespace securefs
