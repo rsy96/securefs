@@ -5,7 +5,7 @@ package securefs;
 import "protos/argopt.proto";
 import "protos/params.proto";
 
-message CreateCmdOptions
+message CreateCmd
 {
     string repository = 1 [
         (arg_option) = {

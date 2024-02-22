@@ -13,6 +13,45 @@ namespace securefs
 {
 
 #ifdef _WIN32
+static DWORD map_to_create_disposition(CreateMode create_mode)
+{
+    switch (create_mode)
+    {
+    case CreateMode::kOpenOnly:
+        return OPEN_EXISTING;
+    case CreateMode::kCreateOnly:
+        return CREATE_NEW;
+    case CreateMode::kCreateIfNonExisting:
+        return OPEN_ALWAYS;
+    case CreateMode::kTruncate:
+        return CREATE_ALWAYS;
+    }
+}
+
+static DWORD map_to_access_mode(ReadWriteMode mode)
+{
+    switch (mode)
+    {
+    case ReadWriteMode::kReadOnly:
+        return GENERIC_READ;
+    case ReadWriteMode::kReadWrite:
+        return GENERIC_READ | GENERIC_WRITE;
+    }
+}
+SystemFileIO::SystemFileIO(const char* filename,
+                           CreateMode create_mode,
+                           ReadWriteMode read_write_mode,
+                           new_file_permission_type perm)
+{
+    handle_ = CHECK_WINAPI_CALL(CreateFileA(filename,
+                                            map_to_access_mode(read_write_mode),
+                                            FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                            perm,
+                                            map_to_create_disposition(create_mode),
+                                            FILE_ATTRIBUTE_NORMAL,
+                                            nullptr),
+                                INVALID_HANDLE_VALUE);
+}
 SystemFileIO::~SystemFileIO() { CloseHandle(handle_); }
 
 SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)

@@ -21,5 +21,22 @@ public:
 
     // Resize to the new size. If new size is greater, filling the difference with zeros.
     virtual void resize(SizeType new_size) = 0;
+
+    template <typename Callback>
+    void read_and_process_all(Callback&& cb)
+    {
+        unsigned char buffer[4000];
+        OffsetType pos = 0;
+        while (true)
+        {
+            auto size = read(pos, absl::MakeSpan(buffer));
+            if (size <= 0)
+            {
+                break;
+            }
+            cb(absl::MakeConstSpan(buffer, size));
+            pos += size;
+        }
+    }
 };
 }    // namespace securefs

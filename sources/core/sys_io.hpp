@@ -1,18 +1,41 @@
 #pragma once
+#include "exceptions.hpp"
 #include "io.hpp"
 
 namespace securefs
 {
 #ifdef _WIN32
 using native_handle_type = void*;
+using new_file_permission_type = LPSECURITY_ATTRIBUTES;
+inline new_file_permission_type default_permission = nullptr;
 #else
 using native_handle_type = int;
+using new_file_permission_type = int;
+inline new_file_permission_type default_permission = 0644;
 #endif
+
+enum class CreateMode
+{
+    kOpenOnly = 0,
+    kCreateOnly = 1,
+    kCreateIfNonExisting = 2,
+    kTruncate = 3,
+};
+
+enum class ReadWriteMode
+{
+    kReadOnly = 0,
+    kReadWrite = 1,
+};
 
 class SystemFileIO final : public RandomIO
 {
 public:
     explicit SystemFileIO(native_handle_type handle) : handle_(handle) {}
+    SystemFileIO(const char* filename,
+                 CreateMode create_mode,
+                 ReadWriteMode read_write_mode,
+                 new_file_permission_type perm = default_permission);
     ~SystemFileIO();
 
     virtual SizeType read(OffsetType offset, ByteBuffer output) override;

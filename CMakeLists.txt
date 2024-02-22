@@ -36,11 +36,13 @@ find_package(Protobuf)
 find_package(unofficial-utf8proc)
 find_package(Boost)
 find_package(magic_enum)
-
+find_package(unofficial-argon2)
+find_package(blake3)
 target_link_libraries(
     securefs-core
     PUBLIC Threads::Threads
            cryptopp::cryptopp
+           BLAKE3::blake3
            absl::base
            absl::endian
            absl::cleanup
@@ -52,7 +54,8 @@ target_link_libraries(
            SQLite::SQLite3
            utf8proc
            Boost::boost
-           magic_enum::magic_enum)
+           magic_enum::magic_enum
+           unofficial::argon2::libargon2)
 protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
                   ${CMAKE_CURRENT_BINARY_DIR}/out/)
 target_include_directories(securefs-core

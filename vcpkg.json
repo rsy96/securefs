@@ -16,6 +16,8 @@
         "utf8proc",
         "boost-numeric-conversion",
         "magic-enum",
-        "argparse"
+        "argparse",
+        "argon2",
+        "blake3"
     ]
 }
