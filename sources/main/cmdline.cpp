@@ -1,4 +1,5 @@
 #include "cmdline.hpp"
+#include "core/exceptions.hpp"
 
 #include "protos/cmdline.pb.h"
 
@@ -6,11 +7,17 @@
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_replace.h>
+#include <boost/numeric/conversion/cast.hpp>
 
 #include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
+
+// The Windows.h is so messy
+#ifdef _WIN32
+#undef GetMessage
+#endif
 
 namespace securefs
 {
@@ -25,6 +32,99 @@ static std::string prepend_dash(std::string_view arg_name)
         return absl::StrCat("--", arg_name);
     }
     return absl::StrCat("-", arg_name);
+}
+
+static void
+set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, int32_t v)
+{
+    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_INT32);
+    msg->GetReflection()->SetInt32(msg, f, v);
+}
+
+static void
+set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, int64_t v)
+{
+    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_INT64);
+    msg->GetReflection()->SetInt64(msg, f, v);
+}
+
+static void
+set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, uint32_t v)
+{
+    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_UINT32);
+    msg->GetReflection()->SetUInt32(msg, f, v);
+}
+
+static void
+set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, uint64_t v)
+{
+    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_UINT64);
+    msg->GetReflection()->SetUInt64(msg, f, v);
+}
+
+static void
+set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, std::string v)
+{
+    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_STRING);
+    msg->GetReflection()->SetString(msg, f, std::move(v));
+}
+
+template <typename T>
+static T get_field(const google::protobuf::Message& msg, const google::protobuf::FieldDescriptor* f)
+{
+    if constexpr (std::is_same_v<T, int32_t>)
+    {
+        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_INT32);
+        return msg.GetReflection()->GetInt32(msg, f);
+    }
+    if constexpr (std::is_same_v<T, int64_t>)
+    {
+        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_INT64);
+        return msg.GetReflection()->GetInt64(msg, f);
+    }
+    if constexpr (std::is_same_v<T, uint32_t>)
+    {
+        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_UINT32);
+        return msg.GetReflection()->GetUInt32(msg, f);
+    }
+    if constexpr (std::is_same_v<T, uint64_t>)
+    {
+        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_UINT64);
+        return msg.GetReflection()->GetUInt64(msg, f);
+    }
+    if constexpr (std::is_same_v<T, std::string>)
+    {
+        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_STRING);
+        return msg.GetReflection()->GetString(msg, f);
+    }
+}
+
+template <typename T>
+static CLI::Option*
+generic_handle_option(CLI::App* app,
+                      std::string name,
+                      std::function<google::protobuf::Message*()> mutable_msg_getter,
+                      const google::protobuf::Message& default_value_template,
+                      const google::protobuf::FieldDescriptor* f,
+                      const ArgOption& opt)
+{
+    CLI::Option* o = app->add_option_function<T>(
+        std::move(name),
+        [getter = std::move(mutable_msg_getter), f](const T& v) { set_field(getter(), f, v); },
+        opt.doc());
+    if (default_value_template.GetReflection()->HasField(default_value_template, f))
+    {
+        o->default_val(get_field<T>(default_value_template, f));
+    }
+    if constexpr (std::is_integral_v<T>)
+    {
+        if (opt.has_min_value())
+        {
+            o->check(
+                CLI::Range(boost::numeric_cast<T>(opt.min_value()), std::numeric_limits<T>::max()));
+        }
+    }
+    return o;
 }
 
 static void attach_parser(CLI::App* app,
@@ -69,9 +169,31 @@ static void attach_parser(CLI::App* app,
             }
         }
         CLI::Option* o = nullptr;
-        switch (f->type())
+
+        switch (f->cpp_type())
         {
-        case google::protobuf::FieldDescriptor::TYPE_BOOL:
+        case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+            o = generic_handle_option<int32_t>(
+                app, name, mutable_msg_getter, default_value_template, f, opt);
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+            o = generic_handle_option<int64_t>(
+                app, name, mutable_msg_getter, default_value_template, f, opt);
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
+            o = generic_handle_option<uint32_t>(
+                app, name, mutable_msg_getter, default_value_template, f, opt);
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
+            o = generic_handle_option<uint64_t>(
+                app, name, mutable_msg_getter, default_value_template, f, opt);
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+            VALIDATE_CONSTRAINT(f->type() != f->TYPE_BYTES);
+            o = generic_handle_option<std::string>(
+                app, name, mutable_msg_getter, default_value_template, f, opt);
+            break;
+        case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
             if (default_value_template.GetReflection()->GetBool(default_value_template, f))
             {
                 throw std::invalid_argument("A default true is confusing, don't use that");
@@ -85,55 +207,7 @@ static void attach_parser(CLI::App* app,
                 },
                 opt.doc());
             break;
-        case google::protobuf::FieldDescriptor::TYPE_STRING:
-            o = app->add_option_function<std::string>(
-                name,
-                [=](const std::string& v)
-                {
-                    auto* msg = mutable_msg_getter();
-                    msg->GetReflection()->SetString(msg, f, v);
-                },
-                opt.doc());
-            if (default_value_template.GetReflection()->HasField(default_value_template, f))
-            {
-                o->default_val(
-                    default_value_template.GetReflection()->GetString(default_value_template, f));
-            }
-            break;
-        case google::protobuf::FieldDescriptor::TYPE_INT64:
-        case google::protobuf::FieldDescriptor::TYPE_SINT64:
-        case google::protobuf::FieldDescriptor::TYPE_SFIXED64:
-            o = app->add_option_function<int64_t>(
-                name,
-                [=](const int64_t& v)
-                {
-                    auto* msg = mutable_msg_getter();
-                    msg->GetReflection()->SetInt64(msg, f, v);
-                },
-                opt.doc());
-            if (default_value_template.GetReflection()->HasField(default_value_template, f))
-            {
-                o->default_val(
-                    default_value_template.GetReflection()->GetInt64(default_value_template, f));
-            }
-            break;
-        case google::protobuf::FieldDescriptor::TYPE_UINT64:
-        case google::protobuf::FieldDescriptor::TYPE_FIXED64:
-            o = app->add_option_function<uint64_t>(
-                name,
-                [=](const int64_t& v)
-                {
-                    auto* msg = mutable_msg_getter();
-                    msg->GetReflection()->SetUInt64(msg, f, v);
-                },
-                opt.doc());
-            if (default_value_template.GetReflection()->HasField(default_value_template, f))
-            {
-                o->default_val(
-                    default_value_template.GetReflection()->GetUInt64(default_value_template, f));
-            }
-            break;
-        case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
+        case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE:
             attach_parser(
                 app->add_option_group(opt.doc()),
                 [=]()

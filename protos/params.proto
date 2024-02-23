@@ -20,22 +20,25 @@ message MasterKeys
 
 message Argon2idParams
 {
-    int64 time_cost = 1 [
+    uint32 time_cost = 1 [
         (arg_option) = {
             doc : "Defines the amount of computation realized and therefore the execution time, given in number of iterations."
             alt_name : "t"
+            min_value : 1
         }
     ];
-    int64 memory_cost = 2 [
+    uint32 memory_cost = 2 [
         (arg_option) = {
             doc : "Defines the memory usage, given in MiB."
             alt_name : "m"
+            min_value : 1
         }
     ];
-    int64 parallelism = 3 [
+    uint32 parallelism = 3 [
         (arg_option) = {
             doc : "Defines the number of parallel threads (changes the resulting hash value)."
             alt_name : "p"
+            min_value : 1
         }
     ];
 }
@@ -53,12 +56,14 @@ message SecureFSParams
         (arg_option) = {
             doc : "The block size for the virtual filesystem plus the overhead (28 bytes). Usually it should be a power of 2."
             alt_name : "block"
+            min_value : 32
         }
     ];
     uint64 virtual_block_size_for_tree_db = 4 [
         (arg_option) = {
             doc : "The block size for the SQLite database (tree.db). Usually it should be a power of 2."
             alt_name : "tree-block"
+            min_value : 32
         }
     ];
 }
@@ -67,9 +72,9 @@ message SecureFSSerializedConfig
 {
     SecureFSParams params = 1;
     EncryptedData encrypted_master_keys = 2;
+    bytes salt = 3;
     oneof pbkdf
     {
-        Argon2idParams argon2_params = 3;
+        Argon2idParams argon2_params = 4;
     }
-    bytes salt = 4;
 }

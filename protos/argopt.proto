@@ -19,6 +19,8 @@ message ArgOption
     optional bool is_required = 5;
     // If set, then the environment variable content will be parsed if not spelled out on the command line.
     optional string env_key = 6;
+    // If set, the argument is validated.
+    optional int64 min_value = 7;
 }
 
 extend google.protobuf.FieldOptions
