@@ -17,6 +17,7 @@
         "magic-enum",
         "argparse",
         "argon2",
-        "blake3"
+        "blake3",
+        "cli11"
     ]
 }

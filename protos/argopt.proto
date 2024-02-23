@@ -17,6 +17,8 @@ message ArgOption
     optional string prefix = 4;
     // Only useful if not positional.
     optional bool is_required = 5;
+    // If set, then the environment variable content will be parsed if not spelled out on the command line.
+    optional string env_key = 6;
 }
 
 extend google.protobuf.FieldOptions

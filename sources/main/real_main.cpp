@@ -95,16 +95,15 @@ int real_main(int argc, char** argv)
     try
     {
         absl::InitializeLog();
-        auto all_cmds = parse_all_cmds(argc, argv);
-        if (all_cmds.has_create_cmd())
-        {
-            create_repo(all_cmds.create_cmd());
-        }
-        else
-        {
-            absl::FPrintF(stderr, "No subcommand specified\n");
-            return 1;
-        }
+        AllCmds all_cmds;
+        VALIDATE_CONSTRAINT(
+            google::protobuf::TextFormat::ParseFromString(kDefaultAllCmds, &all_cmds));
+
+        auto main_app = std::make_unique<CLI::App>("securefs");
+        attach_parser(main_app->add_subcommand("create")->alias("c"), all_cmds.mutable_create_cmd())
+            ->parse_complete_callback([&]() { create_repo(all_cmds.create_cmd()); });
+        main_app->require_subcommand(1);
+        CLI11_PARSE(*main_app, argc, argv);
     }
     catch (const std::exception& e)
     {
