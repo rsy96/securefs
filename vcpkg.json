@@ -15,7 +15,6 @@
         "utf8proc",
         "boost-numeric-conversion",
         "magic-enum",
-        "argparse",
         "argon2",
         "blake3",
         "cli11"

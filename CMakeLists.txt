@@ -67,12 +67,10 @@ protobuf_generate(TARGET securefs-core IMPORT_DIRS protos PROTOC_OUT_DIR
 target_include_directories(securefs-core
                            PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out/)
 
-find_package(argparse)
 find_package(CLI11)
 file(GLOB MAIN_SOURCES sources/main/*.hpp sources/main/*.cpp)
 add_library(securefs-main STATIC ${MAIN_SOURCES})
-target_link_libraries(securefs-main PUBLIC securefs-core argparse::argparse
-                                           CLI11::CLI11)
+target_link_libraries(securefs-main PUBLIC securefs-core CLI11::CLI11)
 target_include_directories(securefs-main PUBLIC sources)
 target_compile_definitions(securefs-main PRIVATE _CRT_NONSTDC_NO_WARNINGS=1)
 
