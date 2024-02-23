@@ -92,6 +92,14 @@ if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-core PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
+add_executable(securefs main.cpp)
+if(MSVC)
+    target_sources(securefs PRIVATE securefs.manifest)
+    target_sources(securefs-test PRIVATE securefs.manifest)
+endif()
+
+target_link_libraries(securefs PRIVATE securefs-main)
+
 if(0)
     add_definitions(-D_REENTRANT -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=28
                     -DUTF8PROC_EXPORTS=1)

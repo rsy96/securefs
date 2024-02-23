@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-option optimize_for = CODE_SIZE;
-
 package securefs;
 
 import "protos/argopt.proto";
@@ -36,7 +34,7 @@ message Argon2idParams
     ];
     int64 parallelism = 3 [
         (arg_option) = {
-            doc : " Defines the number of parallel threads (changes the resulting hash value)."
+            doc : "Defines the number of parallel threads (changes the resulting hash value)."
             alt_name : "p"
         }
     ];

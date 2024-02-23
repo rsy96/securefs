@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-option optimize_for = CODE_SIZE;
-
 package securefs;
 
 import "protos/argopt.proto";
@@ -40,4 +38,9 @@ message CreateCmd
             }
         ];
     }
+}
+
+message AllCmds
+{
+    CreateCmd create_cmd = 1;
 }
