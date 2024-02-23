@@ -105,6 +105,10 @@ static MasterKeys init_master_key()
 
 void create_repo(const CreateCmd& cmd)
 {
+    if (cmd.password().empty())
+    {
+        throw std::invalid_argument("Password must not be empty");
+    }
     std::vector<std::string> files_to_remove_on_failure, dirs_to_remove_on_failure;
     auto cleanup = absl::MakeCleanup(
         [&]()
@@ -136,7 +140,7 @@ void create_repo(const CreateCmd& cmd)
         create_directory(dir);
         dirs_to_remove_on_failure.emplace_back(std::move(dir));
     };
-
+    create_directory_and_remember(cmd.repository());
     create_directory_and_remember(
         absl::StrCat(cmd.repository(), "/", outer_dir_for_inode(TreeDB::kRootINode)));
     create_directory_and_remember(
@@ -163,8 +167,9 @@ void create_repo(const CreateCmd& cmd)
     config.mutable_salt()->resize(32);
     generate_random(as_bytes(*config.mutable_salt()));
 
+    auto master_keys = init_master_key();
     encrypt_master_keys(
-        init_master_key(),
+        master_keys,
         derive_user_key(
             cmd.password(), cmd.key_file(), as_bytes(config.salt()), config.argon2_params()))
         .Swap(config.mutable_encrypted_master_keys());
@@ -176,14 +181,17 @@ void create_repo(const CreateCmd& cmd)
         EncryptedSqliteVfsRegistry::Params params{};
         params.encryption_params.underlying_block_size
             = config.params().virtual_block_size_for_tree_db() + 28;
+        std::copy(master_keys.tree_key().begin(),
+                  master_keys.tree_key().end(),
+                  params.encryption_params.key.begin());
         EncryptedSqliteVfsRegistry vfs_registry(params);
         auto tree_db_path
             = (cmd.tree_db().empty() ? absl::StrCat(cmd.repository(), "/tree.db") : cmd.tree_db());
+        files_to_remove_on_failure.emplace_back(tree_db_path);
         TreeDB tree(SQLiteDB(tree_db_path.c_str(),
                              SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_EXCLUSIVE
                                  | SQLITE_OPEN_NOMUTEX,
                              vfs_registry.vfs_name().c_str()));
-        files_to_remove_on_failure.emplace_back(std::move(tree_db_path));
         tree.create_tables(config.params().exact_name_only());
     }
 }

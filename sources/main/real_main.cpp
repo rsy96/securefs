@@ -5,6 +5,7 @@
 
 #include "protos/cmdline.pb.h"
 
+#include <absl/log/initialize.h>
 #include <absl/strings/str_format.h>
 #include <argparse/argparse.hpp>
 #include <google/protobuf/text_format.h>
@@ -14,6 +15,29 @@ namespace securefs
 
 namespace
 {
+#ifdef _WIN32
+    struct ConsoleCPController
+    {
+        ConsoleCPController()
+        {
+            old_cp = ::GetConsoleCP();
+            old_output_cp = ::GetConsoleOutputCP();
+
+            ::SetConsoleCP(CP_UTF8);
+            ::SetConsoleOutputCP(CP_UTF8);
+        }
+        ~ConsoleCPController()
+        {
+            SetConsoleOutputCP(old_output_cp);
+            SetConsoleCP(old_cp);
+        }
+
+    private:
+        DWORD old_cp, old_output_cp;
+    };
+
+    ConsoleCPController console_cp_controller;
+#endif
     constexpr const char* const kDefaultAllCmds = R"textproto(
         create_cmd: {
             params: {
@@ -70,13 +94,17 @@ int real_main(int argc, char** argv)
 {
     try
     {
+        absl::InitializeLog();
         auto all_cmds = parse_all_cmds(argc, argv);
         if (all_cmds.has_create_cmd())
         {
             create_repo(all_cmds.create_cmd());
         }
-        absl::FPrintF(stderr, "No subcommand specified\n");
-        return 1;
+        else
+        {
+            absl::FPrintF(stderr, "No subcommand specified\n");
+            return 1;
+        }
     }
     catch (const std::exception& e)
     {

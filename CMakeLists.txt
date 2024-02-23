@@ -51,6 +51,11 @@ target_link_libraries(
            absl::str_format
            absl::strings
            absl::synchronization
+           absl::log
+           absl::log_globals
+           absl::log_initialize
+           absl::log_sink
+           absl::log_sink_registry
            protobuf::libprotobuf
            SQLite::SQLite3
            utf8proc

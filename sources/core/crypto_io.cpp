@@ -2,6 +2,7 @@
 #include "rng.hpp"
 
 #include <absl/base/internal/endian.h>
+#include <absl/log/log.h>
 #include <absl/strings/str_format.h>
 
 #include <algorithm>
@@ -93,8 +94,16 @@ SizeType AesGcmRandomIO::read(OffsetType offset, ByteBuffer output)
             = decrypt_block(current_block_plaintext, current_block_ciphertext, i + start_block);
         if (!success)
         {
-            throw CryptoVerificationException(
-                absl::StrFormat("File block %v failed verification", i + start_block));
+            if (params_.skip_verification)
+            {
+                LOG(WARNING) << absl::StreamFormat("File block %v failed verification",
+                                                   i + start_block);
+            }
+            else
+            {
+                throw CryptoVerificationException(
+                    absl::StrFormat("File block %v failed verification", i + start_block));
+            }
         }
     }
     if (start_residue > plaintext.size())

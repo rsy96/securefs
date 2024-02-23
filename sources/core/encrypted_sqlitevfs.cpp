@@ -4,6 +4,7 @@
 #include "sqlitehelper.hpp"
 #include "utilities.hpp"
 
+#include <absl/log/log.h>
 #include <absl/strings/str_format.h>
 #include <boost/numeric/conversion/cast.hpp>
 
@@ -199,7 +200,7 @@ namespace
     };
 
     template <class Callable>
-    static int safe_sqlite_call(Callable&& callable)
+    static int safe_sqlite_call(Callable&& callable) noexcept
     {
         try
         {
@@ -207,7 +208,8 @@ namespace
         }
         catch (const std::exception& e)
         {
-            // TODO: add debug logging.
+            LOG(ERROR) << absl::StreamFormat(
+                "I/O error when performing SQLite operations (%s): %s", typeid(e).name(), e.what());
             return SQLITE_IOERR;
         }
     }
@@ -450,9 +452,6 @@ EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(const Params& params,
             [=]()
             {
                 memset(outfile, 0, sizeof(EncryptedSqliteFile));
-                static const EncryptedSqliteFileMethods file_methods;
-                outfile->pMethods = &file_methods.io_methods;
-
                 auto data = get_data(vfs);
                 C_unique_ptr<sqlite3_file> underlying_sqlite_file(
                     static_cast<sqlite3_file*>(malloc(data->vfs->szOsFile)));
@@ -468,6 +467,9 @@ EncryptedSqliteVfsRegistry::EncryptedSqliteVfsRegistry(const Params& params,
                 }
                 static_cast<EncryptedSqliteFile*>(outfile)->impl
                     = new EncryptedSqliteFileImpl(std::move(underlying_sqlite_file), data->params);
+
+                static const EncryptedSqliteFileMethods file_methods;
+                outfile->pMethods = &file_methods.io_methods;
                 return SQLITE_OK;
             });
     };

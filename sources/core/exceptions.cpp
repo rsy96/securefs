@@ -1,6 +1,9 @@
 #include "exceptions.hpp"
 
 #include <absl/strings/str_format.h>
+#include <absl/strings/strip.h>
+
+#include <string_view>
 
 namespace securefs
 {
@@ -17,7 +20,10 @@ static std::string format_windows_exception_message(DWORD code, std::string_view
                    temp_buffer,
                    sizeof(temp_buffer) - 1,
                    nullptr);
-    return absl::StrFormat("Windows error %X (%s): %s", code, temp_buffer, user_msg);
+    return absl::StrFormat("Windows error 0x%X (%s): %s",
+                           code,
+                           absl::StripTrailingAsciiWhitespace(temp_buffer),
+                           user_msg);
 }
 
 NtException::NtException(NTSTATUS code, std::string_view user_msg)
