@@ -5,6 +5,7 @@
 #include <absl/types/span.h>
 
 #include <cstdlib>
+#include <exception>
 #include <memory>
 #include <string_view>
 #include <type_traits>
@@ -82,6 +83,8 @@ public:
 
 std::string random_hex_string(size_t num_bytes);
 
+void warn_on_unlock_error(const std::exception& e) noexcept;
+
 /// @brief A class to enforce that access to the object is always synchronized.
 /// @tparam Lockable A class with lock() and unlock() methods. Typically it should be a struct
 /// bunding a mutex with the data it protects.
@@ -108,8 +111,9 @@ public:
                 {
                     lockable_.unlock();
                 }
-                catch (...)
+                catch (const std::exception& e)
                 {
+                    warn_on_unlock_error(e);
                 }
             });
         return cb(lockable_);

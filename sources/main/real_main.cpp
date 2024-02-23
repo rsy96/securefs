@@ -64,7 +64,7 @@ int real_main(int argc, char** argv)
 
         auto main_app = std::make_unique<CLI::App>("securefs");
         attach_parser(main_app->add_subcommand("create")->alias("c"), all_cmds.mutable_create_cmd())
-            ->parse_complete_callback([&]() { create_repo(all_cmds.create_cmd()); });
+            ->final_callback([&]() { create_repo(all_cmds.create_cmd()); });
         main_app->require_subcommand(1);
         CLI11_PARSE(*main_app, argc, argv);
     }
