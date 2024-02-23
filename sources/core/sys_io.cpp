@@ -109,6 +109,21 @@ void SystemFileIO::resize(SizeType new_size)
     CHECK_WINAPI_CALL(SetEndOfFile(handle_), 0);
 }
 
+bool create_directory(const char* name)
+{
+    auto rc = CreateDirectoryA(name, nullptr);
+    if (rc)
+    {
+        return true;
+    }
+
+    DWORD err = GetLastError();
+    if (err == ERROR_ALREADY_EXISTS)
+    {
+        return false;
+    }
+    throw WindowsException(err, "CreateDirectoryA(name, nullptr)");
+}
 #else
 SystemFileIO::~SystemFileIO() { close(handle_); }
 

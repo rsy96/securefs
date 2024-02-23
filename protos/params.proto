@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option optimize_for = CODE_SIZE;
+
 package securefs;
 
 import "protos/argopt.proto";
@@ -51,7 +53,7 @@ message SecureFSParams
     ];
     uint64 underlying_block_size = 3 [
         (arg_option) = {
-            doc : "The block size for the virtual filesystem plus the overhead (48 bytes). Usually it should be a power of 2."
+            doc : "The block size for the virtual filesystem plus the overhead (28 bytes). Usually it should be a power of 2."
             alt_name : "block"
         }
     ];

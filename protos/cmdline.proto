@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option optimize_for = CODE_SIZE;
+
 package securefs;
 
 import "protos/argopt.proto";
@@ -16,20 +18,23 @@ message CreateCmd
     string tree_db = 2 [ (arg_option) = {
         doc : "If not empty, save the tree.db in this path rather than under the repository."
     } ];
-    string password = 3 [ (arg_option) = {
+    string config = 3 [ (arg_option) = {
+        doc : "If not empty, save the config.pb in this path rather than under the repository."
+    } ];
+    string password = 4 [ (arg_option) = {
         doc : "If empty, password shall be input from the command line."
     } ];
-    string key_file = 4 [ (arg_option) = {
+    string key_file = 5 [ (arg_option) = {
         doc : "Path to the key file."
         alt_name : "keyfile"
     } ];
-    SecureFSParams params = 5 [ (arg_option) = {
+    SecureFSParams params = 6 [ (arg_option) = {
         prefix : ""
     } ];
 
     oneof pbkdf_params
     {
-        Argon2idParams argon2_params = 6 [
+        Argon2idParams argon2_params = 7 [
             (arg_option) = {
                 prefix : "ar-"
             }

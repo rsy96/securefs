@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option optimize_for = CODE_SIZE;
+
 package securefs;
 
 import "google/protobuf/descriptor.proto";

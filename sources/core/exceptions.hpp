@@ -99,4 +99,15 @@ namespace internal
 #define CHECK_POSIX_CALL(expr, invalid_value)                                                      \
     ::securefs::internal::check_posix_call((expr), invalid_value, #expr);
 
+class InternalError : public std::runtime_error
+{
+    using runtime_error::runtime_error;
+};
+
+#define VALIDATE_CONSTRAINT(x)                                                                     \
+    do                                                                                             \
+    {                                                                                              \
+        if (!(x))                                                                                  \
+            throw InternalError(#x);                                                               \
+    } while (0)
 }    // namespace securefs

@@ -49,4 +49,11 @@ private:
     native_handle_type handle_;
 };
 
+/// @brief Create a directory, returns if it is successful.
+/// Note: if the directory already exists, then return false. Other kinds of errors will be thrown
+/// as exceptions.
+/// @param name Path name of the directory.
+bool create_directory(const char* name);
+
+inline bool create_directory(const std::string& name) { return create_directory(name.c_str()); }
 }    // namespace securefs

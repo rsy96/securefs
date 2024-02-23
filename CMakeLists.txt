@@ -26,6 +26,7 @@ endif()
 
 file(GLOB CORE_SOURCES sources/core/*.hpp sources/core/*.cpp protos/*.proto)
 add_library(securefs-core STATIC ${CORE_SOURCES})
+target_compile_definitions(securefs-core PRIVATE _CRT_NONSTDC_NO_WARNINGS=1)
 
 find_package(Threads)
 find_package(cryptopp)
@@ -66,6 +67,7 @@ file(GLOB MAIN_SOURCES sources/main/*.hpp sources/main/*.cpp)
 add_library(securefs-main STATIC ${MAIN_SOURCES})
 target_link_libraries(securefs-main PUBLIC securefs-core argparse::argparse)
 target_include_directories(securefs-main PUBLIC sources)
+target_compile_definitions(securefs-main PRIVATE _CRT_NONSTDC_NO_WARNINGS=1)
 
 file(
     GLOB
@@ -79,6 +81,8 @@ add_executable(securefs-test ${TEST_CORE_SOURCES})
 find_package(doctest REQUIRED)
 target_link_libraries(securefs-test PRIVATE securefs-core securefs-main
                                             doctest::doctest)
+target_compile_definitions(securefs-test PRIVATE _CRT_NONSTDC_NO_WARNINGS=1)
+
 add_test(
     NAME securefs-test
     COMMAND securefs-test
