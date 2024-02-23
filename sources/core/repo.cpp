@@ -5,12 +5,17 @@
 #include "tree_db.hpp"
 
 #include <absl/strings/str_cat.h>
+#include <absl/strings/str_format.h>
 #include <argon2.h>
 #include <blake3.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/gcm.h>
 
 #include <stdexcept>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace securefs
 {
@@ -100,15 +105,57 @@ static MasterKeys init_master_key()
 
 void create_repo(const CreateCmd& cmd)
 {
-    create_directory(absl::StrCat(cmd.repository(), "/FF"));
-    create_directory(absl::StrCat(cmd.repository(), "/FF/FF"));
+    std::vector<std::string> files_to_remove_on_failure, dirs_to_remove_on_failure;
+    auto cleanup = absl::MakeCleanup(
+        [&]()
+        {
+            if (std::uncaught_exceptions() <= 0)
+            {
+                return;
+            }
+            for (auto it = files_to_remove_on_failure.rbegin();
+                 it != files_to_remove_on_failure.rend();
+                 ++it)
+            {
+                remove(it->c_str());
+            }
+            for (auto it = dirs_to_remove_on_failure.rbegin();
+                 it != dirs_to_remove_on_failure.rend();
+                 ++it)
+            {
+#ifdef _WIN32
+                RemoveDirectoryA(it->c_str());
+#else
+                rmdir(it->c_str());
+#endif
+            }
+        });
+
+    auto create_directory_and_remember = [&](std::string dir)
+    {
+        create_directory(dir);
+        dirs_to_remove_on_failure.emplace_back(std::move(dir));
+    };
+
+    create_directory_and_remember(
+        absl::StrCat(cmd.repository(), "/", outer_dir_for_inode(TreeDB::kRootINode)));
+    create_directory_and_remember(
+        absl::StrCat(cmd.repository(), "/", inner_dir_for_inode(TreeDB::kRootINode)));
+
+    auto create_file_and_remember = [&](std::string fn)
+    {
+        auto result = std::make_unique<SystemFileIO>(
+            fn.c_str(), CreateMode::kCreateOnly, ReadWriteMode::kReadWrite);
+        files_to_remove_on_failure.emplace_back(std::move(fn));
+        return result;
+    };
+
     {
         unsigned char random_data[4096];
         generate_random(random_data, sizeof(random_data));
-        SystemFileIO root_file(absl::StrCat(cmd.repository(), "/FF/FF/FFFFFFFFFFFFFFFF").c_str(),
-                               CreateMode::kCreateOnly,
-                               ReadWriteMode::kReadWrite);
-        root_file.write(0, absl::MakeConstSpan(random_data));
+        create_file_and_remember(
+            absl::StrCat(cmd.repository(), "/", full_file_name_for_inode(TreeDB::kRootINode)))
+            ->write(0, absl::MakeConstSpan(random_data));
     }
     SecureFSSerializedConfig config;
     config.mutable_params()->CopyFrom(cmd.params());
@@ -121,28 +168,49 @@ void create_repo(const CreateCmd& cmd)
         derive_user_key(
             cmd.password(), cmd.key_file(), as_bytes(config.salt()), config.argon2_params()))
         .Swap(config.mutable_encrypted_master_keys());
+    create_file_and_remember(cmd.config().empty() ? absl::StrCat(cmd.repository(), "/config.pb")
+                                                  : cmd.config())
+        ->write(0, as_bytes(config.SerializeAsString()));
 
-    {
-        SystemFileIO config_file(
-            (cmd.config().empty() ? absl::StrCat(cmd.repository(), "/config.pb") : cmd.config())
-                .c_str(),
-            CreateMode::kCreateOnly,
-            ReadWriteMode::kReadWrite);
-        config_file.write(0, as_bytes(config.SerializeAsString()));
-    }
     {
         EncryptedSqliteVfsRegistry::Params params{};
         params.encryption_params.underlying_block_size
             = config.params().virtual_block_size_for_tree_db() + 28;
         EncryptedSqliteVfsRegistry vfs_registry(params);
-        TreeDB tree(SQLiteDB(
-            (cmd.tree_db().empty() ? absl::StrCat(cmd.repository(), "/tree.db") : cmd.tree_db())
-                .c_str(),
-            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_EXCLUSIVE
-                | SQLITE_OPEN_NOMUTEX,
-            vfs_registry.vfs_name().c_str()));
+        auto tree_db_path
+            = (cmd.tree_db().empty() ? absl::StrCat(cmd.repository(), "/tree.db") : cmd.tree_db());
+        TreeDB tree(SQLiteDB(tree_db_path.c_str(),
+                             SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_EXCLUSIVE
+                                 | SQLITE_OPEN_NOMUTEX,
+                             vfs_registry.vfs_name().c_str()));
+        files_to_remove_on_failure.emplace_back(std::move(tree_db_path));
         tree.create_tables(config.params().exact_name_only());
     }
+}
+
+std::string outer_dir_for_inode(uint64_t inode)
+{
+    return absl::StrFormat("%02x", inode >> (64 - 8));
+}
+
+std::string inner_dir_for_inode(uint64_t inode)
+{
+    return absl::StrFormat("%02x/%02x", inode >> (64 - 8), (inode >> (64 - 16)) & 0xFFull);
+}
+
+std::string full_file_name_for_inode(uint64_t inode)
+{
+    return absl::StrFormat("%02x/%02x/%02x%02x%02x%02x%02x%02x%02x%02x",
+                           inode >> (64 - 8),
+                           (inode >> (64 - 16)) & 0xFFull,
+                           inode >> (64 - 8),
+                           (inode >> (64 - 16)) & 0xFFull,
+                           (inode >> (64 - 24)) & 0xFFull,
+                           (inode >> (64 - 32)) & 0xFFull,
+                           (inode >> (64 - 40)) & 0xFFull,
+                           (inode >> (64 - 48)) & 0xFFull,
+                           (inode >> (64 - 56)) & 0xFFull,
+                           (inode >> (64 - 64)) & 0xFFull);
 }
 
 }    // namespace securefs

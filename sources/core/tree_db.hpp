@@ -29,7 +29,7 @@ enum class FileType
 class ABSL_LOCKABLE TreeDB
 {
 public:
-    static constexpr int64_t kRootINode = std::numeric_limits<int64_t>::min();
+    static constexpr uint64_t kRootINode = static_cast<uint64_t>(-1);
 
     explicit TreeDB(SQLiteDB db);
 
@@ -37,24 +37,24 @@ public:
     /// @param exact_only If true, skips the case folded and unicode normalized names in the table.
     void create_tables(bool exact_only);
 
-    int64_t create_entry(int64_t parent_inode, std::string_view name, FileType file_type);
+    uint64_t create_entry(uint64_t parent_inode, std::string_view name, FileType file_type);
 
     struct LookupResult
     {
-        int64_t inode{};
+        uint64_t inode{};
         FileType file_type{};
         int64_t link_count{};
     };
 
     std::optional<LookupResult>
-    lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode lookup_mode);
+    lookup_entry(uint64_t parent_inode, std::string_view name, NameLookupMode lookup_mode);
 
     /// @brief Remove an entry.
     /// @param parent_inode The inode of the parent directory.
     /// @param inode The inode to remove a link.
     /// @return Whether all references to the inode are removed in the table. The underlying storage
     /// should be cleaned up if this is true.
-    bool remove_entry(int64_t parent_inode, int64_t inode);
+    bool remove_entry(uint64_t parent_inode, uint64_t inode);
 
     void lock_and_enter_transaction() ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_);
     void leave_transaction_and_unlock(bool rollback) ABSL_UNLOCK_FUNCTION(mu_);

@@ -73,7 +73,7 @@ void TreeDB::create_tables(bool exact_only)
     }
 }
 
-int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileType file_type)
+uint64_t TreeDB::create_entry(uint64_t parent_inode, std::string_view name, FileType file_type)
 {
     int64_t inode = 0;
     while (true)
@@ -100,7 +100,7 @@ int64_t TreeDB::create_entry(int64_t parent_inode, std::string_view name, FileTy
 }
 
 std::optional<TreeDB::LookupResult>
-TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode lookup_mode)
+TreeDB::lookup_entry(uint64_t parent_inode, std::string_view name, NameLookupMode lookup_mode)
 {
     C_unique_ptr<unsigned char> guard;
     SQLiteStatement* stmt = nullptr;
@@ -154,7 +154,7 @@ TreeDB::lookup_entry(int64_t parent_inode, std::string_view name, NameLookupMode
     return result;
 }
 
-bool TreeDB::remove_entry(int64_t parent_inode, int64_t inode)
+bool TreeDB::remove_entry(uint64_t parent_inode, uint64_t inode)
 {
     decrement_link_count_.reset();
     decrement_link_count_.bind_int(1, inode);
