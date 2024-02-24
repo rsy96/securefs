@@ -26,6 +26,7 @@ static DWORD map_to_create_disposition(CreateMode create_mode)
     case CreateMode::kTruncate:
         return CREATE_ALWAYS;
     }
+    VALIDATE_CONSTRAINT(false);
 }
 
 static DWORD map_to_access_mode(ReadWriteMode mode)
@@ -37,7 +38,9 @@ static DWORD map_to_access_mode(ReadWriteMode mode)
     case ReadWriteMode::kReadWrite:
         return GENERIC_READ | GENERIC_WRITE;
     }
+    VALIDATE_CONSTRAINT(false);
 }
+
 SystemFileIO::SystemFileIO(const char* filename,
                            CreateMode create_mode,
                            ReadWriteMode read_write_mode,

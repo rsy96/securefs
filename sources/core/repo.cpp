@@ -8,6 +8,7 @@
 #include <absl/strings/str_format.h>
 #include <argon2.h>
 #include <blake3.h>
+#include <boost/numeric/conversion/cast.hpp>
 #include <cryptopp/aes.h>
 #include <cryptopp/gcm.h>
 
@@ -81,7 +82,7 @@ EncryptedData encrypt_master_keys(const MasterKeys& keys,
         reinterpret_cast<unsigned char*>(result.mutable_mac()->data()),
         result.mutable_mac()->size(),
         reinterpret_cast<const unsigned char*>(result.iv().data()),
-        result.iv().size(),
+        boost::numeric_cast<int>(result.iv().size()),
         nullptr,
         0,
         reinterpret_cast<const unsigned char*>(serialized_keys.data()),

@@ -175,7 +175,7 @@ static void attach_parser(CLI::App* app,
         default_value_template.GetDescriptor()->field_count());
     for (size_t i = 0; i < fields.size(); ++i)
     {
-        fields[i] = default_value_template.GetDescriptor()->field(i);
+        fields[i] = default_value_template.GetDescriptor()->field(boost::numeric_cast<int>(i));
     }
     std::sort(
         fields.begin(),

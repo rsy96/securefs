@@ -149,7 +149,8 @@ TreeDB::lookup_entry(uint64_t parent_inode, std::string_view name, NameLookupMod
     }
     result.emplace();
     result->inode = stmt->get_int(0);
-    result->file_type = magic_enum::enum_cast<FileType>(stmt->get_int(1)).value();
+    result->file_type
+        = magic_enum::enum_cast<FileType>(boost::numeric_cast<int>(stmt->get_int(1))).value();
     result->link_count = stmt->get_int(2);
     return result;
 }

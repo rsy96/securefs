@@ -7,6 +7,8 @@ endif()
 
 option(SECUREFS_USE_FUSET
        "Use FUSE-T instead of MacFUSE (only makes sense on macOS)" OFF)
+option(SECUREFS_WINFSP_LOCATION "Location of the WinFsp installation directory"
+       "C:/Program Files (x86)/WinFsp")
 
 project(securefs)
 enable_testing()
@@ -101,6 +103,16 @@ add_executable(securefs main.cpp)
 if(MSVC)
     target_sources(securefs PRIVATE securefs.manifest)
     target_sources(securefs-test PRIVATE securefs.manifest)
+endif()
+
+if(WIN32)
+    target_include_directories(securefs-main
+                               PUBLIC SYSTEM ${SECUREFS_WINFSP_LOCATION}/inc)
+    target_link_libraries(
+        securefs-main
+        PUBLIC ${SECUREFS_WINFSP_LOCATION}/lib/winfsp-x64.lib
+        PUBLIC delayimp.lib)
+    target_link_options(securefs-main PUBLIC -DELAYLOAD:winfsp-x64.dll)
 endif()
 
 target_link_libraries(securefs PRIVATE securefs-main)
