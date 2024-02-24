@@ -1253,6 +1253,12 @@ public:
             "atomic_o_trunc",
 #endif
         };
+        if (config.version < 4)
+        {
+            // Format 1,2,3 has stable inode numbers.
+            fuse_args.emplace_back("-o");
+            fuse_args.emplace_back("use_ino");
+        }
         if (single_threaded.getValue())
         {
             fuse_args.emplace_back("-s");
