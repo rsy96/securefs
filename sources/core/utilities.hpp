@@ -1,6 +1,5 @@
 #pragma once
 
-#include <absl/base/thread_annotations.h>
 #include <absl/cleanup/cleanup.h>
 #include <absl/types/span.h>
 
@@ -96,23 +95,23 @@ void warn_on_unlock_error(const std::exception& e) noexcept;
 /// @tparam Lockable A class with lock() and unlock() methods. Typically it should be a struct
 /// bunding a mutex with the data it protects.
 template <class Lockable>
-class Synchronized
+class SynchronizedInPlace
 {
 public:
     template <typename... Args>
-    explicit Synchronized(Args&&... args) : lockable_(std::forward<Args>(args)...)
+    explicit SynchronizedInPlace(Args&&... args) : lockable_(std::forward<Args>(args)...)
     {
     }
 
-    Synchronized(Synchronized&&) = delete;
-    Synchronized& operator=(Synchronized&&) = delete;
+    SynchronizedInPlace(SynchronizedInPlace&&) = delete;
+    SynchronizedInPlace& operator=(SynchronizedInPlace&&) = delete;
 
     template <typename Callback>
-    auto synchronized(Callback&& cb) ABSL_NO_THREAD_SAFETY_ANALYSIS
+    auto synchronized(Callback&& cb)
     {
         lockable_.lock();
         auto cleanup = absl::MakeCleanup(
-            [this]() ABSL_NO_THREAD_SAFETY_ANALYSIS
+            [this]()
             {
                 try
                 {
@@ -128,5 +127,42 @@ public:
 
 private:
     Lockable lockable_;
+};
+
+/// @brief A class to enforce that access to the object is always synchronized.
+template <class T, class Mutex>
+class SynchronizedWithMutex
+{
+public:
+    template <typename... Args>
+    explicit SynchronizedWithMutex(Args&&... args) : t_(std::forward<Args>(args)...)
+    {
+    }
+
+    SynchronizedWithMutex(SynchronizedWithMutex&&) = delete;
+    SynchronizedWithMutex& operator=(SynchronizedWithMutex&&) = delete;
+
+    template <typename Callback>
+    auto synchronized(Callback&& cb)
+    {
+        mu_.lock();
+        auto cleanup = absl::MakeCleanup(
+            [this]()
+            {
+                try
+                {
+                    mu_.unlock();
+                }
+                catch (const std::exception& e)
+                {
+                    warn_on_unlock_error(e);
+                }
+            });
+        return cb(t_);
+    }
+
+private:
+    Mutex mu_;
+    T t_;
 };
 }    // namespace securefs

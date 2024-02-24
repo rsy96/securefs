@@ -2,10 +2,8 @@
 
 #include "sqlitehelper.hpp"
 
-#include <absl/base/thread_annotations.h>
-#include <absl/synchronization/mutex.h>
-
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <string_view>
 
@@ -26,7 +24,7 @@ enum class FileType
 };
 
 /// @brief The filesystem tree, saved in a SQLite database.
-class ABSL_LOCKABLE TreeDB
+class TreeDB
 {
 public:
     static constexpr uint64_t kRootINode = static_cast<uint64_t>(-1);
@@ -56,17 +54,14 @@ public:
     /// should be cleaned up if this is true.
     bool remove_entry(uint64_t parent_inode, uint64_t inode);
 
-    void lock_and_enter_transaction() ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_);
-    void leave_transaction_and_unlock(bool rollback) ABSL_UNLOCK_FUNCTION(mu_);
+    void lock_and_enter_transaction();
+    void leave_transaction_and_unlock(bool rollback);
 
-    void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION(mu_) { lock_and_enter_transaction(); }
-    void unlock() ABSL_UNLOCK_FUNCTION(mu_)
-    {
-        leave_transaction_and_unlock(std::uncaught_exceptions() > 0);
-    }
+    void lock() { lock_and_enter_transaction(); }
+    void unlock() { leave_transaction_and_unlock(std::uncaught_exceptions() > 0); }
 
 private:
-    absl::Mutex mu_;
+    std::mutex mu_;
     SQLiteDB db_;
     SQLiteStatement begin_, commit_, rollback_, lookup_count_of_inode_, lookup_exact_,
         lookup_case_insensitive_, lookup_uninormed_, create_, decrement_link_count_, remove_;

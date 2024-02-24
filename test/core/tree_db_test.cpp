@@ -20,7 +20,7 @@ void treedb_test(bool exact_name_lookup)
     auto filename = random_hex_string(8) + ".db";
     auto cleanup = absl::MakeCleanup([&]() { remove(filename.c_str()); });
 
-    Synchronized<TreeDB> synchronized_tree(
+    SynchronizedInPlace<TreeDB> synchronized_tree(
         SQLiteDB(filename.c_str(), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr));
 
     synchronized_tree.synchronized([&](auto&& tree) { tree.create_tables(exact_name_lookup); });

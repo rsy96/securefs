@@ -53,7 +53,6 @@ target_link_libraries(
            absl::span
            absl::str_format
            absl::strings
-           absl::synchronization
            absl::log
            absl::log_globals
            absl::log_initialize

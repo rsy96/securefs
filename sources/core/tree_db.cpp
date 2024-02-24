@@ -231,7 +231,7 @@ TreeDB::TreeDB(SQLiteDB db)
 
 void TreeDB::lock_and_enter_transaction()
 {
-    mu_.Lock();
+    mu_.lock();
     begin_.reset();
     begin_.step();
 }
@@ -248,7 +248,7 @@ void TreeDB::leave_transaction_and_unlock(bool rollback)
         commit_.reset();
         commit_.step();
     }
-    mu_.Unlock();
+    mu_.unlock();
 }
 
 }    // namespace securefs
