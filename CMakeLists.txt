@@ -7,8 +7,9 @@ endif()
 
 option(SECUREFS_USE_FUSET
        "Use FUSE-T instead of MacFUSE (only makes sense on macOS)" OFF)
-option(SECUREFS_WINFSP_LOCATION "Location of the WinFsp installation directory"
-       "C:/Program Files (x86)/WinFsp")
+set(SECUREFS_WINFSP_LOCATION
+    "C:/Program Files (x86)/WinFsp"
+    CACHE PATH "Location of the WinFsp installation directory")
 
 project(securefs)
 enable_testing()
@@ -100,14 +101,12 @@ if(CMAKE_DL_LIBS)
 endif()
 
 add_executable(securefs main.cpp)
-if(MSVC)
-    target_sources(securefs PRIVATE securefs.manifest)
-    target_sources(securefs-test PRIVATE securefs.manifest)
-endif()
 
 if(WIN32)
-    target_include_directories(securefs-main
-                               PUBLIC SYSTEM ${SECUREFS_WINFSP_LOCATION}/inc)
+    target_sources(securefs PRIVATE securefs.manifest)
+    target_sources(securefs-test PRIVATE securefs.manifest)
+    target_include_directories(securefs-main SYSTEM
+                               PUBLIC ${SECUREFS_WINFSP_LOCATION}/inc)
     target_link_libraries(
         securefs-main
         PUBLIC ${SECUREFS_WINFSP_LOCATION}/lib/winfsp-x64.lib
