@@ -41,7 +41,7 @@ private:
     Resource r_;
 
 public:
-    /* implicit */ RAII(Resource r) noexcept : r_(r)
+    explicit RAII(Resource r) noexcept : r_(r)
     {
         static_assert(std::is_trivially_copyable_v<Resource>);
     }
@@ -78,6 +78,13 @@ public:
     const Resource operator->() const noexcept
     {
         return r_;
+    }
+
+    Resource release() noexcept
+    {
+        Resource r = r_;
+        r_ = ResourceTraits::invalid();
+        return r;
     }
 };
 

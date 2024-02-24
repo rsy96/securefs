@@ -46,16 +46,17 @@ SystemFileIO::SystemFileIO(const char* filename,
                            ReadWriteMode read_write_mode,
                            new_file_permission_type perm)
 {
-    handle_ = CHECK_WINAPI_CALL(CreateFileA(filename,
-                                            map_to_access_mode(read_write_mode),
-                                            FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                            perm,
-                                            map_to_create_disposition(create_mode),
-                                            FILE_ATTRIBUTE_NORMAL,
-                                            nullptr),
-                                INVALID_HANDLE_VALUE);
+    handle_ = OwnedNativeHandle(
+        CHECK_WINAPI_CALL(CreateFileA(filename,
+                                      map_to_access_mode(read_write_mode),
+                                      FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                      perm,
+                                      map_to_create_disposition(create_mode),
+                                      FILE_ATTRIBUTE_NORMAL,
+                                      nullptr),
+                          INVALID_HANDLE_VALUE));
 }
-SystemFileIO::~SystemFileIO() { CloseHandle(handle_); }
+SystemFileIO::~SystemFileIO() {}
 
 SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)
 {
@@ -67,7 +68,7 @@ SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)
     o.Offset = static_cast<DWORD>(offset);
     o.OffsetHigh = static_cast<DWORD>(offset >> 32);
     DWORD result = 0;
-    if (!ReadFile(handle_, output.data(), (DWORD)output.size(), &result, &o))
+    if (!ReadFile(handle(), output.data(), (DWORD)output.size(), &result, &o))
     {
         DWORD code = GetLastError();
         if (code == ERROR_HANDLE_EOF)
@@ -75,7 +76,7 @@ SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)
             return 0;
         }
         throw WindowsException(code,
-                               "ReadFile(handle_, output.data(), output.size(), &result, &o)");
+                               "ReadFile(handle(), output.data(), output.size(), &result, &o)");
     }
     return result;
 }
@@ -90,7 +91,7 @@ void SystemFileIO::write(OffsetType offset, ConstByteBuffer input)
     o.Offset = static_cast<DWORD>(offset);
     o.OffsetHigh = static_cast<DWORD>(offset >> 32);
     DWORD result = 0;
-    CHECK_WINAPI_CALL(WriteFile(handle_, input.data(), (DWORD)input.size(), &result, &o), 0);
+    CHECK_WINAPI_CALL(WriteFile(handle(), input.data(), (DWORD)input.size(), &result, &o), 0);
     if (result != input.size())
     {
         throw NtException(STATUS_IO_DEVICE_ERROR, "Failed to write all bytes in");
@@ -100,7 +101,7 @@ void SystemFileIO::write(OffsetType offset, ConstByteBuffer input)
 SizeType SystemFileIO::size() const
 {
     LARGE_INTEGER result = {};
-    CHECK_WINAPI_CALL(GetFileSizeEx(handle_, &result), 0);
+    CHECK_WINAPI_CALL(GetFileSizeEx(handle(), &result), 0);
     return result.QuadPart;
 }
 
@@ -108,8 +109,8 @@ void SystemFileIO::resize(SizeType new_size)
 {
     LARGE_INTEGER lsize;
     lsize.QuadPart = new_size;
-    CHECK_WINAPI_CALL(SetFilePointerEx(handle_, lsize, nullptr, FILE_BEGIN), 0);
-    CHECK_WINAPI_CALL(SetEndOfFile(handle_), 0);
+    CHECK_WINAPI_CALL(SetFilePointerEx(handle(), lsize, nullptr, FILE_BEGIN), 0);
+    CHECK_WINAPI_CALL(SetEndOfFile(handle()), 0);
 }
 
 bool create_directory(const char* name)
@@ -128,17 +129,17 @@ bool create_directory(const char* name)
     throw WindowsException(err, "CreateDirectoryA(name, nullptr)");
 }
 #else
-SystemFileIO::~SystemFileIO() { close(handle_); }
+SystemFileIO::~SystemFileIO() {}
 
 SizeType SystemFileIO::read(OffsetType offset, ByteBuffer output)
 {
-    return CHECK_POSIX_CALL(::pread(handle_, output.data(), output.size(), offset),
+    return CHECK_POSIX_CALL(::pread(handle(), output.data(), output.size(), offset),
                             static_cast<ssize_t>(-1));
 }
 
 void SystemFileIO::write(OffsetType offset, ConstByteBuffer input)
 {
-    auto size = CHECK_POSIX_CALL(::pwrite(handle_, input.data(), input.size(), offset),
+    auto size = CHECK_POSIX_CALL(::pwrite(handle(), input.data(), input.size(), offset),
                                  static_cast<ssize_t>(-1));
     if (size != input.size())
     {
@@ -149,13 +150,13 @@ void SystemFileIO::write(OffsetType offset, ConstByteBuffer input)
 SizeType SystemFileIO::size() const
 {
     struct stat st;
-    CHECK_POSIX_CALL(::fstat(handle_, &st), -1);
+    CHECK_POSIX_CALL(::fstat(handle(), &st), -1);
     return st.st_size;
 }
 
 void SystemFileIO::resize(SizeType new_size)
 {
-    CHECK_POSIX_CALL(::ftruncate(handle_, new_size), -1);
+    CHECK_POSIX_CALL(::ftruncate(handle(), new_size), -1);
 }
 #endif
 }    // namespace securefs

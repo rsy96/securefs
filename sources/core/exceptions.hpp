@@ -61,7 +61,7 @@ namespace internal
 }    // namespace internal
 
 #define CHECK_WINAPI_CALL(expr, invalid_value)                                                     \
-    ::securefs::internal::check_winapi_call((expr), invalid_value, #expr);
+    ::securefs::internal::check_winapi_call((expr), invalid_value, #expr)
 
 #endif
 
@@ -97,7 +97,7 @@ namespace internal
 }    // namespace internal
 
 #define CHECK_POSIX_CALL(expr, invalid_value)                                                      \
-    ::securefs::internal::check_posix_call((expr), invalid_value, #expr);
+    ::securefs::internal::check_posix_call((expr), invalid_value, #expr)
 
 class InternalError : public std::runtime_error
 {

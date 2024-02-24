@@ -1,6 +1,7 @@
 #pragma once
 #include "exceptions.hpp"
 #include "io.hpp"
+#include "utilities.hpp"
 
 namespace securefs
 {
@@ -8,11 +9,28 @@ namespace securefs
 using native_handle_type = void*;
 using new_file_permission_type = LPSECURITY_ATTRIBUTES;
 inline new_file_permission_type default_permission = nullptr;
+
+struct NativeHandleTraits
+{
+    static native_handle_type invalid() { return INVALID_HANDLE_VALUE; }
+
+    static void cleanup(native_handle_type h) { ::CloseHandle(h); }
+};
+
 #else
 using native_handle_type = int;
 using new_file_permission_type = int;
 inline new_file_permission_type default_permission = 0644;
+
+struct NativeHandleTraits
+{
+    static native_handle_type invalid() { return -1; }
+
+    static void cleanup(native_handle_type h) { ::close(h); }
+};
 #endif
+
+using OwnedNativeHandle = RAII<native_handle_type, NativeHandleTraits>;
 
 enum class CreateMode
 {
@@ -43,10 +61,10 @@ public:
     virtual SizeType size() const override;
     virtual void resize(SizeType new_size) override;
 
-    native_handle_type handle() noexcept { return handle_; }
+    native_handle_type handle() const noexcept { return handle_.get(); }
 
 private:
-    native_handle_type handle_;
+    OwnedNativeHandle handle_;
 };
 
 /// @brief Create a directory, returns if it is successful.
