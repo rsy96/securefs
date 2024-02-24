@@ -50,6 +50,9 @@ namespace
                 parallelism: 4
             }
         }
+        mount_cmd: {
+
+        }
     )textproto";
 }    // namespace
 
@@ -65,6 +68,10 @@ int real_main(int argc, char** argv)
         auto main_app = std::make_unique<CLI::App>("securefs");
         attach_parser(main_app->add_subcommand("create")->alias("c"), all_cmds.mutable_create_cmd())
             ->final_callback([&]() { create_repo(all_cmds.create_cmd()); });
+        attach_parser(main_app->add_subcommand("mount")->alias("m"), all_cmds.mutable_mount_cmd())
+            ->final_callback(
+                [&]() { throw std::runtime_error("Mount command hasn't been implemented yet"); });
+
         main_app->require_subcommand(1);
         CLI11_PARSE(*main_app, argc, argv);
     }

@@ -3,6 +3,7 @@
 
 #include "protos/cmdline.pb.h"
 
+#include <absl/strings/ascii.h>
 #include <absl/strings/escaping.h>
 #include <absl/strings/str_cat.h>
 #include <absl/strings/str_format.h>
@@ -65,8 +66,22 @@ set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescripto
 static void
 set_field(google::protobuf::Message* msg, const google::protobuf::FieldDescriptor* f, std::string v)
 {
-    VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_STRING);
-    msg->GetReflection()->SetString(msg, f, std::move(v));
+    switch (f->cpp_type())
+    {
+    case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+        msg->GetReflection()->SetString(msg, f, std::move(v));
+        break;
+    case google::protobuf::FieldDescriptor::CPPTYPE_ENUM:
+    {
+        absl::AsciiStrToUpper(&v);
+        auto enum_value = f->enum_type()->FindValueByName(v);
+        VALIDATE_CONSTRAINT(enum_value != nullptr);
+        msg->GetReflection()->SetEnum(msg, f, enum_value);
+    }
+    break;
+    default:
+        VALIDATE_CONSTRAINT(false);
+    }
 }
 
 template <typename T>
@@ -94,8 +109,15 @@ static T get_field(const google::protobuf::Message& msg, const google::protobuf:
     }
     if constexpr (std::is_same_v<T, std::string>)
     {
-        VALIDATE_CONSTRAINT(f->cpp_type() == f->CPPTYPE_STRING);
-        return msg.GetReflection()->GetString(msg, f);
+        switch (f->cpp_type())
+        {
+        case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+            return msg.GetReflection()->GetString(msg, f);
+        case google::protobuf::FieldDescriptor::CPPTYPE_ENUM:
+            return msg.GetReflection()->GetEnum(msg, f)->name();
+        default:
+            VALIDATE_CONSTRAINT(false);
+        }
     }
 }
 
@@ -122,6 +144,23 @@ generic_handle_option(CLI::App* app,
         {
             o->check(
                 CLI::Range(boost::numeric_cast<T>(opt.min_value()), std::numeric_limits<T>::max()));
+        }
+    }
+    else if constexpr (std::is_same_v<T, std::string>)
+    {
+        if (f->cpp_type() == f->CPPTYPE_ENUM)
+        {
+            std::vector<std::string> valid_enum_names(f->enum_type()->value_count());
+            for (int i = 0; i < f->enum_type()->value_count(); ++i)
+            {
+                auto* enum_value = f->enum_type()->value(i);
+                if (enum_value->number() == 0)
+                {
+                    continue;    // Ignore the "UNSPECIFIED" enum value in the choices
+                }
+                valid_enum_names.emplace_back(absl::AsciiStrToLower(enum_value->name()));
+            }
+            o->check(CLI::IsMember(valid_enum_names, CLI::ignore_case));
         }
     }
     return o;
@@ -189,6 +228,7 @@ static void attach_parser(CLI::App* app,
                 app, name, mutable_msg_getter, default_value_template, f, opt);
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+        case google::protobuf::FieldDescriptor::CPPTYPE_ENUM:
             VALIDATE_CONSTRAINT(f->type() != f->TYPE_BYTES);
             o = generic_handle_option<std::string>(
                 app, name, mutable_msg_getter, default_value_template, f, opt);

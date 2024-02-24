@@ -44,7 +44,41 @@ message CreateCmd
     }
 }
 
+message MountCmd
+{
+    string repository = 1 [
+        (arg_option) = {
+            doc : "The path to the directory to store files.",
+            positional : true,
+        }
+    ];
+    string tree_db = 2 [ (arg_option) = {
+        doc : "If not empty, save the tree.db in this path rather than under the repository."
+    } ];
+    string config = 3 [ (arg_option) = {
+        doc : "If not empty, save the config.pb in this path rather than under the repository."
+    } ];
+
+    string mount_point = 4 [ (arg_option) = {
+        doc : "The path to the mount point. On Windows, this can be either a drive like X: or a directory path."
+        positional : true
+    } ];
+
+    enum FileNameNormlizationMode {
+        FILE_NAME_NORM_MODE_UNSPECIFIED = 0;
+        NONE = 1;
+        CASE = 2;
+        UNI = 3;
+    }
+    FileNameNormlizationMode norm_mode = 5 [
+        (arg_option) = {
+            doc : "How to normalize the filename during lookup. On Windows, default to \"case\" (case insensitive lookup), on mac, default to \"uni\"(Unicode normalized), on others the default is \"none\"."
+        }
+    ];
+}
+
 message AllCmds
 {
     CreateCmd create_cmd = 1;
+    MountCmd mount_cmd = 2;
 }
