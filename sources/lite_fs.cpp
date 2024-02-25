@@ -340,12 +340,11 @@ namespace lite
 
     void FileSystem::statvfs(struct fuse_statvfs* buf) { m_root->statfs(buf); }
 
-    class THREAD_ANNOTATION_CAPABILITY("mutex") LiteDirectory final : public Directory
+    class ABSL_LOCKABLE LiteDirectory final : public Directory
     {
     private:
         std::string m_path;
-        std::unique_ptr<DirectoryTraverser>
-            m_underlying_traverser THREAD_ANNOTATION_GUARDED_BY(*this);
+        std::unique_ptr<DirectoryTraverser> m_underlying_traverser ABSL_GUARDED_BY(*this);
 
         // Nullable. When null, the name isn't translated.
         std::shared_ptr<AES_SIV> m_name_encryptor;
@@ -369,13 +368,13 @@ namespace lite
 
         StringRef path() const override { return m_path; }
 
-        void rewind() override THREAD_ANNOTATION_REQUIRES(*this)
+        void rewind() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(*this)
         {
             m_underlying_traverser->rewind();
         }
 
         bool next(std::string* name, struct fuse_stat* stbuf) override
-            THREAD_ANNOTATION_REQUIRES(*this)
+            ABSL_EXCLUSIVE_LOCKS_REQUIRED(*this)
         {
             std::string under_name, decoded_bytes;
 
