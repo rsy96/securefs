@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.x"
       - name: install
-        run: sudo apt-get install fuse libfuse-dev libcrypto++-dev libargon2-dev libtclap-dev libabsl-dev libutf8proc-dev libjsoncpp-dev doctest-dev
+        run: sudo apt-get update && sudo apt-get install fuse libfuse-dev libcrypto++-dev libargon2-dev libtclap-dev libabsl-dev libutf8proc-dev libjsoncpp-dev doctest-dev libprotobuf-dev protobuf-compiler cmake-data
       - name: configure
         run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSECUREFS_USE_VCPKG=OFF ..
       - name: build

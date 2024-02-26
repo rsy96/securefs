@@ -55,13 +55,6 @@ file(GLOB TEST_SOURCES test/*.h test/*.cpp)
 add_library(securefs-static STATIC ${SOURCES})
 link_libraries(securefs-static)
 
-find_package(Protobuf CONFIG REQUIRED)
-protobuf_generate(TARGET securefs-static IMPORT_DIRS protos PROTOC_OUT_DIR
-                  ${CMAKE_CURRENT_BINARY_DIR}/out/)
-target_include_directories(securefs-static
-                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out/)
-target_link_libraries(securefs-static PUBLIC protobuf::libprotobuf)
-
 if(MSVC)
     add_executable(securefs main.cpp securefs.manifest)
 else()
@@ -86,6 +79,7 @@ if(SECUREFS_USE_VCPKG)
     target_link_libraries(securefs-static PUBLIC unofficial::argon2::libargon2)
     find_package(jsoncpp CONFIG REQUIRED)
     target_link_libraries(securefs-static PUBLIC JsonCpp::JsonCpp)
+    find_package(Protobuf CONFIG REQUIRED)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(UTF8PROC REQUIRED libutf8proc)
@@ -100,7 +94,14 @@ else()
 
     find_library(CRYPTOPP_FLAGS NAMES cryptopp crypto++)
     target_link_libraries(securefs-static PUBLIC ${CRYPTOPP_FLAGS})
+    find_package(Protobuf REQUIRED)
+
 endif()
+
+target_link_libraries(securefs-static PUBLIC protobuf::libprotobuf)
+protobuf_generate(TARGET securefs-static IMPORT_DIRS protos PROTOC_OUT_DIR
+                  ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(securefs-static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-static PUBLIC ${CMAKE_DL_LIBS})
