@@ -1,0 +1,29 @@
+syntax = "proto2";
+
+package securefs;
+
+import "google/protobuf/descriptor.proto";
+
+message ArgOption
+{
+    // The help message for the command line argument. Required.
+    optional string doc = 1;
+    // If true, this is a positional argument.
+    optional bool positional = 2;
+    // If set, then this is the alternative argument name.
+    optional string alt_name = 3;
+    // If the field is a message, then preappend this prefix to all its arguments to avoid collision.
+    // Otherwise, the field name is the prefix.
+    optional string prefix = 4;
+    // Only useful if not positional.
+    optional bool is_required = 5;
+    // If set, then the environment variable content will be parsed if not spelled out on the command line.
+    optional string env_key = 6;
+    // If set, the argument is validated.
+    optional int64 min_value = 7;
+}
+
+extend google.protobuf.FieldOptions
+{
+    optional ArgOption arg_option = 60820965;
+}

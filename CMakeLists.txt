@@ -51,18 +51,18 @@ include_directories(BEFORE sources)
 set(EXTERNAL_DIR external)
 include_directories(${EXTERNAL_DIR})
 
-file(
-    GLOB
-    SOURCES
-    sources/*.cpp
-    sources/*.h
-    ${EXTERNAL_DIR}/*.h
-    ${EXTERNAL_DIR}/*.hpp
-    ${EXTERNAL_DIR}/*.cpp
-    ${CMAKE_BINARY_DIR}/git-version.cpp)
+file(GLOB SOURCES sources/*.cpp sources/*.h protos/*.proto
+     ${CMAKE_BINARY_DIR}/git-version.cpp)
 file(GLOB TEST_SOURCES test/*.h test/*.cpp)
 add_library(securefs-static STATIC ${SOURCES})
 link_libraries(securefs-static)
+
+find_package(Protobuf CONFIG REQUIRED)
+protobuf_generate(TARGET securefs-static IMPORT_DIRS protos PROTOC_OUT_DIR
+                  ${CMAKE_CURRENT_BINARY_DIR}/out/)
+target_include_directories(securefs-static
+                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/out/)
+target_link_libraries(securefs-static PUBLIC protobuf::libprotobuf)
 
 if(MSVC)
     add_executable(securefs main.cpp securefs.manifest)

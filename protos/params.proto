@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package securefs;
+
+message SecureFSParams
+{
+    uint32 version = 1;
+    uint32 block_size = 2;
+    uint32 iv_size = 3;
+    uint32 max_padding = 4;
+    bytes master_key = 5;
+}
