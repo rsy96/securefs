@@ -24,18 +24,16 @@ namespace lite
     }
 
     FileSystem::FileSystem(std::shared_ptr<const securefs::OSService> root,
+                           std::shared_ptr<AESGCMCryptStreamFactory> factory,
                            const key_type& name_key,
-                           const key_type& content_key,
                            const key_type& xattr_key,
-                           const key_type& padding_key,
                            unsigned block_size,
                            unsigned iv_size,
                            unsigned max_padding_size,
                            unsigned flags)
         : m_name_encryptor()
-        , m_content_key(content_key)
-        , m_padding_aes(padding_key.data(), padding_key.size())
         , m_root(std::move(root))
+        , m_factory(std::move(factory))
         , m_block_size(block_size)
         , m_iv_size(iv_size)
         , m_max_padding_size(max_padding_size)
@@ -184,13 +182,7 @@ namespace lite
             mode |= S_IRUSR;
         }
         auto file_stream = m_root->open_file_stream(translate_path(path, false), flags, mode);
-        AutoClosedFile fp(new File(file_stream,
-                                   m_content_key,
-                                   m_block_size,
-                                   m_iv_size,
-                                   (m_flags & kOptionNoAuthentication) == 0,
-                                   m_max_padding_size,
-                                   &m_padding_aes));
+        auto fp = std::make_unique<File>(file_stream, *m_factory);
         if (flags & O_TRUNC)
         {
             LockGuard<File> lock_guard(*fp, true);
@@ -248,14 +240,7 @@ namespace lite
                     try
                     {
                         auto fs = m_root->open_file_stream(enc_path, O_RDONLY, 0);
-                        AESGCMCryptStream stream(std::move(fs),
-                                                 m_content_key,
-                                                 m_block_size,
-                                                 m_iv_size,
-                                                 (m_flags & kOptionNoAuthentication) == 0,
-                                                 m_max_padding_size,
-                                                 &m_padding_aes);
-                        buf->st_size = stream.size();
+                        buf->st_size = m_factory->create(std::move(fs))->size();
                     }
                     catch (const std::exception& e)
                     {

@@ -60,11 +60,18 @@ namespace lite
                       hexify(xattr_key).c_str(),
                       hexify(padding_key).c_str());
 
+            auto injector = di::make_injector(
+                di::bind<unsigned>().named(tBlockSize).to(ctx->opt->block_size.value()),
+                di::bind<unsigned>().named(tIvSize).to(ctx->opt->iv_size.value()),
+                di::bind<unsigned>().named(tMaxPaddingSize).to(ctx->opt->max_padding_size),
+                di::bind<key_type>().named(tNameMaterKey).to(name_key),
+                di::bind<key_type>().named(tPaddingMasterKey).to(padding_key),
+                di::bind<key_type>().named(tContentMasterKey).to(content_key));
+
             local_opt_fs.emplace(ctx->opt->root,
+                                 injector.create<std::shared_ptr<AESGCMCryptStreamFactory>>(),
                                  name_key,
-                                 content_key,
                                  xattr_key,
-                                 padding_key,
                                  ctx->opt->block_size.value(),
                                  ctx->opt->iv_size.value(),
                                  ctx->opt->max_padding_size,

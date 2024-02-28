@@ -61,17 +61,17 @@ namespace lite
         DISABLE_COPY_MOVE(File)
 
     private:
-        securefs::optional<lite::AESGCMCryptStream> m_crypt_stream ABSL_GUARDED_BY(*this);
+        std::unique_ptr<lite::AESGCMCryptStream> m_crypt_stream ABSL_GUARDED_BY(*this);
         std::shared_ptr<securefs::FileStream> m_file_stream ABSL_GUARDED_BY(*this);
         securefs::Mutex m_lock;
 
     public:
-        template <typename... Args>
-        File(std::shared_ptr<securefs::FileStream> file_stream, Args&&... args)
+        File(std::shared_ptr<securefs::FileStream> file_stream,
+             const AESGCMCryptStreamFactory& factory)
             : m_file_stream(file_stream)
         {
             LockGuard<FileStream> lock_guard(*m_file_stream, true);
-            m_crypt_stream.emplace(file_stream, std::forward<Args>(args)...);
+            m_crypt_stream = factory.create(m_file_stream);
         }
 
         ~File();
@@ -152,13 +152,11 @@ namespace lite
 
     private:
         std::shared_ptr<AES_SIV> m_name_encryptor;
-        key_type m_content_key;
         CryptoPP::GCM<CryptoPP::AES>::Encryption m_xattr_enc;
         CryptoPP::GCM<CryptoPP::AES>::Decryption m_xattr_dec;
-        CryptoPP::ECB_Mode<CryptoPP::AES>::Encryption m_padding_aes;
         std::shared_ptr<const securefs::OSService> m_root;
-        unsigned m_block_size, m_iv_size, m_max_padding_size;
-        unsigned m_flags;
+        std::shared_ptr<AESGCMCryptStreamFactory> m_factory;
+        unsigned m_block_size, m_iv_size, m_max_padding_size, m_flags;
 
     private:
         std::string translate_path(absl::string_view path, bool preserve_leading_slash);
@@ -170,15 +168,15 @@ namespace lite
         static std::string new_decrypt_symlink(absl::string_view path);
 
     public:
-        FileSystem(std::shared_ptr<const securefs::OSService> root,
-                   const key_type& name_key,
-                   const key_type& content_key,
-                   const key_type& xattr_key,
-                   const key_type& padding_key,
-                   unsigned block_size,
-                   unsigned iv_size,
-                   unsigned max_padding_size,
-                   unsigned flags);
+        BOOST_DI_INJECT(FileSystem,
+                        std::shared_ptr<const securefs::OSService> root,
+                        std::shared_ptr<AESGCMCryptStreamFactory> factory,
+                        const key_type& name_key,
+                        const key_type& xattr_key,
+                        (named = tBlockSize) unsigned block_size,
+                        (named = tIvSize) unsigned iv_size,
+                        (named = tMaxPaddingSize) unsigned max_padding_size,
+                        unsigned flags);
 
         ~FileSystem();
 

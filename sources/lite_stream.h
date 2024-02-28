@@ -1,5 +1,6 @@
 #pragma once
 
+#include "di.h"
 #include "streams.h"
 
 #include <cryptopp/aes.h>
@@ -76,6 +77,46 @@ namespace lite
         static length_type calculate_real_size(length_type underlying_size,
                                                length_type block_size,
                                                length_type iv_size) noexcept;
+    };
+
+    class AESGCMCryptStreamFactory
+    {
+    public:
+        BOOST_DI_INJECT(AESGCMCryptStreamFactory,
+                        (named = tContentMasterKey) key_type master_key,
+                        (named = tPaddingMasterKey) key_type padding_key,
+                        (named = tBlockSize) unsigned block_size,
+                        (named = tIvSize) unsigned iv_size,
+                        (named = tVerifyFileIntegrity) bool check,
+                        (named = tMaxPaddingSize) unsigned max_padding_size)
+            : master_key(master_key)
+            , padding_key(padding_key)
+            , block_size(block_size)
+            , iv_size(iv_size)
+            , check(check)
+            , max_padding_size(max_padding_size)
+        {
+        }
+
+        std::unique_ptr<AESGCMCryptStream> create(std::shared_ptr<StreamBase> stream) const
+        {
+            if (max_padding_size > 0)
+            {
+                CryptoPP::ECB_Mode<CryptoPP::AES>::Encryption enc(padding_key.data(),
+                                                                  padding_key.size());
+                return std::make_unique<AESGCMCryptStream>(
+                    stream, master_key, block_size, iv_size, check, max_padding_size, &enc);
+            }
+            return std::make_unique<AESGCMCryptStream>(
+                stream, master_key, block_size, iv_size, check, max_padding_size, nullptr);
+        }
+
+    private:
+        key_type master_key, padding_key;
+        unsigned block_size = 4096;
+        unsigned iv_size = 12;
+        bool check = true;
+        unsigned max_padding_size;
     };
 }    // namespace lite
 }    // namespace securefs

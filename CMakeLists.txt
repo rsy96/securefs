@@ -111,6 +111,8 @@ else()
     find_library(CRYPTOPP_FLAGS NAMES cryptopp crypto++)
     target_link_libraries(securefs-static PUBLIC ${CRYPTOPP_FLAGS})
 endif()
+find_path(BEXT_DI_INCLUDE_DIRS "boost/di.hpp")
+target_include_directories(securefs-static PUBLIC ${BEXT_DI_INCLUDE_DIRS})
 
 if(CMAKE_DL_LIBS)
     target_link_libraries(securefs-static PUBLIC ${CMAKE_DL_LIBS})
